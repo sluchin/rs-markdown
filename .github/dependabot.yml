@@ -5,6 +5,10 @@ updates:
   - package-ecosystem: "npm"
     directories:
       - "/"
+    # typescript-eslint が対応するまで, TypeScript 6.1 以降は上げない (peerDependencies が < 6.1.0).
+    ignore:
+      - dependency-name: "typescript"
+        versions: [">= 6.1.0"]
     schedule:
       interval: "weekly"
     commit-message:
