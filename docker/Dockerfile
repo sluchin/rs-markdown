@@ -1,5 +1,5 @@
 # 開発用のイメージ (dev). doc-translator-core の docker/Dockerfile と同じ内容 (層のキャッシュを共有する). PC (Linux) の Tauri アプリと Android の APK をどちらもビルドできる.
-FROM ubuntu:24.04 AS dev
+FROM ubuntu:26.04 AS dev
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV LANG=C.UTF-8
