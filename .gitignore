@@ -1,0 +1,34 @@
+# Node.js
+node_modules/
+dist/
+*.tsbuildinfo
+coverage/
+
+# Rust
+target/
+
+# Tauri の生成物 (Android プロジェクト gen/android は, コミットする. ビルドの生成物は除く)
+src-tauri/gen/schemas/
+src-tauri/gen/android/.gradle/
+src-tauri/gen/android/build/
+src-tauri/gen/android/app/build/
+src-tauri/gen/android/buildSrc/.gradle/
+src-tauri/gen/android/buildSrc/build/
+src-tauri/gen/android/local.properties
+src-tauri/gen/android/app/src/main/jniLibs/
+src-tauri/gen/android/app/src/main/assets/
+src-tauri/gen/android/app/tauri.build.gradle.kts
+src-tauri/gen/android/app/tauri.properties
+src-tauri/gen/android/app/proguard-tauri.pro
+src-tauri/gen/android/tauri.settings.gradle
+
+# ログと, 個人の設定
+*.log
+.idea/
+.vscode/
+*.iml
+.claude/settings.local.json
+
+# 署名の鍵 (リリース用の鍵を, コミットしない)
+*.jks
+*.keystore

@@ -1,0 +1,2 @@
+# 生成された Android のプロジェクト (tauri android init) は、言語の集計から外す
+src-tauri/gen/** linguist-generated

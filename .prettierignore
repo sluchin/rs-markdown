@@ -1,0 +1,7 @@
+dist
+coverage
+src-tauri/target
+src-tauri/gen
+node_modules
+package-lock.json
+.github

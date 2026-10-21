@@ -1,0 +1,48 @@
+[package]
+name = "rs-markdown"
+version = "0.1.0"
+description = "A Markdown editor and viewer that keeps the notes locally and syncs them with HackMD"
+authors = ["Tetsuya Higashi"]
+license = "GPL-3.0-or-later"
+edition = "2024"
+
+[lib]
+# Windows で bin と名前がぶつからないように, 末尾に _lib を付ける
+name = "rs_markdown_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# TLS は rustls (Android でも同じように動く. OpenSSL を使わない)
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "gzip"] }
+sha2 = "0.10"
+tokio = { version = "1", features = ["macros", "rt", "sync"] }
+# ノートの ID
+uuid = { version = "1", features = ["v4"] }
+# ログ (標準エラー出力と, アプリのデータのログファイル)
+log = "0.4"
+env_logger = "0.11"
+
+[dev-dependencies]
+# 一時的なディレクトリ (ノートとログのテスト)
+tempfile = "3"
+# HackMD の API の代わりの, テスト用の HTTP サーバー
+mockito = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true
+
+# cargo tarpaulin の除外 (`#[cfg(not(tarpaulin_include))]`) を, 未知の cfg として警告しない
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tarpaulin_include)'] }

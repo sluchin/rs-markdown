@@ -1,0 +1,77 @@
+# 開発用のイメージ (docker/Dockerfile) で, テスト, 整形, 静的解析, ビルドを行う.
+# コンテナはホストのユーザーで実行する (生成物が root 所有にならないように). UID と GID はシェルでエクスポートしておく
+x-common: &common
+  build:
+    context: docker
+    dockerfile: Dockerfile
+    target: dev
+  image: rs-markdown-dev:latest
+  volumes:
+    - .:/workspace
+    - ${CARGO_HOME_DIR:-cargo-home}:/cargo-home
+    - ${GRADLE_HOME_DIR:-gradle-cache}:/gradle-home
+    - npm-cache:/npm-cache
+  working_dir: /workspace
+  user: "${UID:-0}:${GID:-0}"
+  environment:
+    - HOME=/tmp
+    # Android のデバッグ署名の鍵 (debug.keystore) をボリュームに残す
+    - ANDROID_USER_HOME=/gradle-home/android
+
+services:
+  # 開発シェル
+  dev:
+    <<: *common
+    stdin_open: true
+    tty: true
+    command: /bin/bash
+
+  # 依存関係を入れる (node_modules)
+  install:
+    <<: *common
+    command: npm ci
+
+  # フロントエンドの単体テスト (Vitest + jsdom) と, Rust の単体テスト
+  test:
+    <<: *common
+    command: sh -c "npm test && cd src-tauri && cargo test"
+
+  # フロントエンドのカバレッジ (src/lib の行と分岐が 100% でなければ失敗する)
+  coverage:
+    <<: *common
+    command: npm run coverage
+
+  # 整形の確認 (Prettier と rustfmt). 整形が必要なら失敗する
+  format:
+    <<: *common
+    command: sh -c "npm run format && cd src-tauri && cargo fmt --check"
+
+  # 整形して, ファイルを書き換える
+  format-fix:
+    <<: *common
+    command: sh -c "npm run format:fix && cd src-tauri && cargo fmt"
+
+  # 静的解析: 型の検査 (tsc), ESLint, Clippy (警告があれば失敗する)
+  analyze:
+    <<: *common
+    command: sh -c "npm run typecheck && npm run lint && cd src-tauri && cargo clippy --all-targets -- -D warnings"
+
+  # PC (Linux) のデバッグ版をビルドする (src-tauri/target/debug/rs-markdown)
+  build-desktop:
+    <<: *common
+    command: npx tauri build --debug --no-bundle
+
+  # Android のデバッグ版 APK をビルドする (arm64. src-tauri/gen/android/app/build/outputs/apk/universal/debug/)
+  build-android:
+    <<: *common
+    command: npx tauri android build --debug --apk --target aarch64
+
+  # ビルドの生成物を消す
+  clean:
+    <<: *common
+    command: sh -c "rm -rf dist coverage src-tauri/target src-tauri/gen/android/app/build src-tauri/gen/android/.gradle && echo 'Removed the build outputs'"
+
+volumes:
+  cargo-home:
+  gradle-cache:
+  npm-cache:
