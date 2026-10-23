@@ -69,7 +69,7 @@ export function highlight(code: string, language: string): string {
 
 /**
  * 一覧の項目の先頭の `[ ]` と `[x]` を, チェックボックスにする (GitHub と HackMD の作業の一覧).
- * チェックボックスは, 表示だけ (押しても変わらない).
+ * チェックボックスを押すと, 元の行の印を切り替える (`lib/tasks.ts`).
  *
  * @param state markdown-it の解析の状態
  */
@@ -92,7 +92,8 @@ export function taskLists(state: StateCore): void {
     const checked = match[1] !== " ";
     first.content = first.content.replace(TASK, "");
     const box = new state.Token("html_inline", "", 0);
-    box.content = `<input type="checkbox" class="task" disabled${checked ? " checked" : ""}> `;
+    // 押すと, 元の行の印を切り替える (表示 `Preview.tsx` が, 項目の `data-source-line` で行を探す)
+    box.content = `<input type="checkbox" class="task"${checked ? " checked" : ""}> `;
     inline.children?.unshift(box);
     tokens[i - 2].attrJoin("class", "task-item");
   }

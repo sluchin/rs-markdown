@@ -19,6 +19,7 @@ import {
 import { type Ref, useEffect, useImperativeHandle, useRef } from "react";
 import { FORMAT_BUTTONS, type FormatCommand, formatEdit } from "../lib/format";
 import { isImageType } from "../lib/images";
+import type { TextChange } from "../lib/tasks";
 
 /** 親から, エディタを動かす窓口. */
 export interface EditorHandle {
@@ -28,6 +29,8 @@ export interface EditorHandle {
   insert: (text: string, at?: { x: number; y: number }) => void;
   /** 本文の行 (小数) が, 上の端に来るように動かす. */
   scrollToLine: (line: number) => void;
+  /** 本文を書き換える (カーソルは動かさない. 元に戻せる). */
+  change: (change: TextChange) => void;
 }
 
 /** エディタの引数. */
@@ -80,6 +83,9 @@ export function Editor({ initial, onChange, onPasteImage, onScrollLine, handle }
         scrollIntoView: true,
       });
       current.focus();
+    },
+    change: (change) => {
+      view.current?.dispatch({ changes: change });
     },
     scrollToLine: (line) => {
       const current = view.current;

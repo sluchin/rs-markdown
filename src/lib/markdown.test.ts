@@ -89,12 +89,16 @@ describe("renderMarkdown", () => {
     );
   });
 
-  it("renders task lists as disabled checkboxes", () => {
+  it("renders task lists as checkboxes in the items with the source lines", () => {
     const html = renderMarkdown("- [ ] todo\n- [x] done\n- [X] Done\n- plain");
     const doc = new DOMParser().parseFromString(html, "text/html");
     const boxes = [...doc.querySelectorAll("input.task")] as HTMLInputElement[];
     expect(boxes.map((box) => box.checked)).toEqual([false, true, true]);
-    expect(boxes.every((box) => box.disabled)).toBe(true);
+    expect(boxes.some((box) => box.disabled)).toBe(false);
+    // 押したときに, 項目の元の行を探せる
+    expect(
+      boxes.map((box) => box.closest("[data-source-line]")?.getAttribute("data-source-line")),
+    ).toEqual(["1", "2", "3"]);
     expect(doc.querySelectorAll("li.task-item")).toHaveLength(3);
     expect(doc.body.textContent).toContain("todo");
     expect(doc.body.textContent).not.toContain("[ ]");

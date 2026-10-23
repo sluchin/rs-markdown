@@ -33,6 +33,8 @@ interface Props {
   onScroll: () => void;
   /** 動かす範囲の要素 (エディタと位置を合わせるのに使う). */
   scroller: Ref<HTMLDivElement>;
+  /** 作業の一覧のチェックボックスを押したときに, 項目の元の行 (1 から) を渡して呼ぶ. */
+  onToggleTask: (line: number) => void;
 }
 
 /** 描いた図を覚えておく数 (同じ図を描き直さない). */
@@ -49,11 +51,23 @@ let diagramCount = 0;
 
 /**
  * リンクを押したときに, ブラウザで開くか, 見出しへ移る (アプリの中では, ほかのページを開かない).
+ * 作業の一覧のチェックボックスを押したときは, 項目の元の行を知らせる.
  *
  * @param event クリック
+ * @param onToggleTask チェックボックスを押したときに呼ぶ関数
  */
-function onClick(event: MouseEvent<HTMLDivElement>) {
-  const anchor = (event.target as Element).closest("a");
+function onClick(event: MouseEvent<HTMLDivElement>, onToggleTask: (line: number) => void) {
+  const target = event.target as Element;
+  if (target.matches("input.task")) {
+    // 表示は, 本文を書き換えた後に描き直す (ここでは, 印を変えない)
+    event.preventDefault();
+    const line = target.closest<HTMLElement>("[data-source-line]")?.dataset.sourceLine;
+    if (line) {
+      onToggleTask(Number(line));
+    }
+    return;
+  }
+  const anchor = target.closest("a");
   if (!anchor) {
     return;
   }
@@ -162,7 +176,7 @@ async function drawDiagrams(root: HTMLElement, cancelled: () => boolean) {
  * @param props 引数
  * @returns 画面
  */
-export function Preview({ content, imagesDir, onScroll, scroller }: Props) {
+export function Preview({ content, imagesDir, onScroll, scroller, onToggleTask }: Props) {
   // 書いているあいだは, 表示を後回しにする (入力を遅くしない)
   const deferred = useDeferredValue(content);
   const html = useMemo(() => renderMarkdown(deferred), [deferred]);
@@ -189,7 +203,7 @@ export function Preview({ content, imagesDir, onScroll, scroller }: Props) {
     <div
       ref={root}
       className="preview markdown-body"
-      onClick={onClick}
+      onClick={(event) => onClick(event, onToggleTask)}
       onScroll={onScroll}
       dangerouslySetInnerHTML={{ __html: html }}
     />

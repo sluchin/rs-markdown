@@ -22,6 +22,7 @@ import {
 } from "../lib/notes";
 import { createSaver, type Saver } from "../lib/saver";
 import { type Anchor, lineForTop, normalizeAnchors, topForLine } from "../lib/scrollSync";
+import { applyChange, toggleTask } from "../lib/tasks";
 import * as api from "./api";
 import { ConflictDialog, type Resolution } from "./ConflictDialog";
 import { Editor, type EditorHandle } from "./Editor";
@@ -226,6 +227,24 @@ export default function App() {
     setContent(text);
     saver.current?.change(text);
   }, []);
+
+  /**
+   * 表示で作業の一覧のチェックボックスを押したときに, 元の行の印を切り替える.
+   * エディタがあれば, エディタで書き換える (元に戻せて, 自動で保存する). 表示だけのときは, 本文を書き換えて保存する.
+   *
+   * @param line 項目の元の行 (1 から)
+   */
+  const onToggleTask = (line: number) => {
+    const change = toggleTask(content, line);
+    if (!change) {
+      return;
+    }
+    if (editor.current) {
+      editor.current.change(change);
+    } else {
+      onChange(applyChange(content, change));
+    }
+  };
 
   const onPasteImage = useCallback(
     async (file: File) => {
@@ -552,6 +571,7 @@ export default function App() {
                   imagesDir={imagesDir}
                   onScroll={mode === "split" ? onPreviewScroll : () => undefined}
                   scroller={preview}
+                  onToggleTask={onToggleTask}
                 />
               )}
             </div>
