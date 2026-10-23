@@ -25,8 +25,9 @@ jobs:
             target: universal-apple-darwin
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-          # glibc の古い環境でも動くように, 古い Ubuntu でビルドする
-          - os: ubuntu-22.04
+          # 開発用のイメージ (docker/Dockerfile) と同じ Ubuntu でビルドする.
+          # できたものは, これより古い glibc の環境 (Ubuntu 24.04 など) では動かない
+          - os: ubuntu-26.04
             target: x86_64-unknown-linux-gnu
 
     runs-on: ${{ matrix.os }}
@@ -95,7 +96,7 @@ jobs:
     name: android
     # Releases のドラフトは desktop が作るので, その後に載せる
     needs: desktop
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: write
     env:
