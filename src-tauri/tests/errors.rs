@@ -7,6 +7,8 @@
 use std::io;
 
 use rs_mdnote_lib::errors::{CommandError, ErrorKind};
+use rs_mdnote_lib::files::FileError;
+use rs_mdnote_lib::filesync::FileSyncError;
 use rs_mdnote_lib::hackmd::ApiError;
 use rs_mdnote_lib::sync::SyncError;
 
@@ -64,4 +66,34 @@ fn test_serialized_shape() {
     let json = serde_json::to_value(CommandError::from(SyncError::Conflict)).unwrap();
     assert_eq!(json["kind"], "conflict");
     assert!(json["message"].is_string());
+}
+
+#[test]
+fn test_from_file_sync_error() {
+    let cases = [
+        (
+            FileSyncError::Note(io::Error::from(io::ErrorKind::NotFound)),
+            ErrorKind::NotFound,
+        ),
+        (
+            FileSyncError::File(FileError::Io(io::Error::from(io::ErrorKind::NotFound))),
+            ErrorKind::FileNotFound,
+        ),
+        (
+            FileSyncError::File(FileError::Io(io::Error::from(
+                io::ErrorKind::PermissionDenied,
+            ))),
+            ErrorKind::FileIo,
+        ),
+        (
+            FileSyncError::File(FileError::NotText),
+            ErrorKind::InvalidFile,
+        ),
+        (FileSyncError::Conflict, ErrorKind::FileConflict),
+        (FileSyncError::NotLinked, ErrorKind::FileNotLinked),
+    ];
+    for (error, kind) in cases {
+        assert_eq!(CommandError::from(error).kind, kind);
+    }
+    assert!(FileSyncError::Conflict.to_string().contains("file"));
 }

@@ -9,9 +9,9 @@ Markdown のエディタとビューア (rs-mdnote。前の名前は rs-markdown
 ```
 
 - アプリの識別子は `jp.sluchin.rsmdnote` (`tauri.conf.json` の `identifier`、Android の `applicationId`)。変えると、ノートと設定の保存先が変わる。
-- `src/lib/`: DOM と Tauri に依存しない処理。行と分岐のカバレッジ 100% (Vitest + jsdom)。`markdown.ts` (変換と安全化)、`math.ts` (数式の解析)、`headings.ts` (見出しの `id` と目次)、`format.ts` (書式のツールバーとショートカットの書き換え)、`scrollSync.ts` (編集と表示の位置の対応)、`images.ts` (ノートの中の画像の場所)。
+- `src/lib/`: DOM と Tauri に依存しない処理。行と分岐のカバレッジ 100% (Vitest + jsdom)。`markdown.ts` (変換と安全化)、`math.ts` (数式の解析)、`headings.ts` (見出しの `id` と目次)、`format.ts` (書式のツールバーとショートカットの書き換え)、`scrollSync.ts` (編集と表示の位置の対応)、`images.ts` (ノートの中の画像の場所)、`tasks.ts` (表示のチェックボックスで, 作業の一覧の印を切り替える)、`files.ts` (取り込めるファイルと, 落としたファイルの振り分け)、`notes.ts` (ノートの一覧と, 同期の状態の説明)。
 - `src/ui/`: React の画面。薄く保つ。テストは置かない。Rust の呼び出しは `ui/api.ts` にまとめる。
-- `src-tauri/src/`: `store.rs` (ノートの保存)、`hackmd.rs` (API)、`sync.rs` (同期)、`settings.rs` (トークン)、`errors.rs` (画面に返すエラー)、`logging.rs` (ログ。doc-translator-core と同じ)、`images.rs` (貼り付けた画像の保存)、`lib.rs` (コマンドと起動)。
+- `src-tauri/src/`: `store.rs` (ノートの保存)、`hackmd.rs` (API)、`sync.rs` (同期)、`settings.rs` (トークン)、`errors.rs` (画面に返すエラー)、`logging.rs` (ログ。doc-translator-core と同じ)、`images.rs` (貼り付けた画像の保存)、`files.rs` (外の Markdown のファイルの読み書き)、`filesync.rs` (取り込んだファイルとの同期。`sync.rs` と同じ考え方)、`lib.rs` (コマンドと起動)。
 
 ## 同期
 
@@ -29,6 +29,7 @@ Markdown のエディタとビューア (rs-mdnote。前の名前は rs-markdown
 - 表示の中のリンクは、アプリの中で開かない (`lib/links.ts`。`http`、`https`、`mailto` だけをブラウザで開く)。
 - CSP (`tauri.conf.json`) は、画像だけを `https:` と `data:` と asset プロトコル (`asset:`、`http://asset.localhost`) に広げる (ノートの画像のため)。asset プロトコルで読めるのは、アプリのデータの `images/` だけ (`assetProtocol.scope`)。スクリプトと通信は広げない。HackMD との通信は Rust から行う。
 - 画像は、名前ではなく中身 (始めのバイト) で形式を決め、PNG、JPEG、GIF、WebP だけを置く (`images::detect_format`。SVG は置かない)。名前は `<UUID>.<拡張子>` にする。
+- 外の Markdown のファイルは、拡張子が `.md`、`.markdown`、`.txt` で、10 MB までの、UTF-8 のものだけを読み書きする (`files::read_markdown`、`files::write_markdown`)。**元のファイルに書くのは、利用者が「ファイルに保存」を押したときだけ** (`filesync::push`)。自動の保存では書かない。書く先は、取り込んだときに一覧 (`NoteMeta.file`) に残したパスだけ。ファイルの側が変わっていたら衝突として止める (ほかのエディタの変更を消さない)。元のファイルがなければ、作らない。パスと本文はログに書かない。
 - ノートの ID は UUID の形だけを通す (`store::is_valid_id`。ファイルの名前に使う)。HackMD のノートの ID も、URL のパスに入れる前に確かめる (`hackmd::is_valid_note_id`)。
 - ノートの本文をログに書かない。
 

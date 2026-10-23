@@ -185,3 +185,55 @@ export const importImage = (path: string) => invoke<string>("import_image", { pa
  * @returns ディレクトリのパス
  */
 export const imagesDir = () => invoke<string>("images_dir");
+
+/**
+ * 外の Markdown のファイルを, ファイルとつないだノートとして取り込む (もう取り込んであれば, そのノート).
+ *
+ * @param path ファイルのパス
+ * @returns 取り込んだノート
+ */
+export const importFile = (path: string) => invoke<NoteMeta>("import_file", { path });
+
+/**
+ * ノートと元のファイルの同期の状態を返す.
+ *
+ * @param id ノートの ID
+ * @returns 状態
+ */
+export const fileStatus = (id: string) => invoke<SyncState>("file_status", { id });
+
+/**
+ * ノートの本文を, 元のファイルに書く.
+ *
+ * @param id ノートの ID
+ * @param force ファイルの側が変わっていても, 上書きするか
+ * @returns 書いたあとのノート
+ */
+export const pushFile = (id: string, force: boolean) =>
+  invoke<NoteMeta>("push_file", { id, force });
+
+/**
+ * 元のファイルの本文を, ノートに取り込み直す.
+ *
+ * @param id ノートの ID
+ * @param force このノートが変わっていても, 上書きするか
+ * @returns 取り込んだあとのノート
+ */
+export const pullFile = (id: string, force: boolean) =>
+  invoke<NoteMeta>("pull_file", { id, force });
+
+/**
+ * ファイルとの衝突で, 両方を残す.
+ *
+ * @param id ノートの ID
+ * @returns ファイルの本文の, 新しいノート
+ */
+export const keepBothFile = (id: string) => invoke<NoteMeta>("keep_both_file", { id });
+
+/**
+ * 元のファイルとのつながりを外す.
+ *
+ * @param id ノートの ID
+ * @returns 変えたあとのノート
+ */
+export const unlinkFile = (id: string) => invoke<NoteMeta>("unlink_file", { id });

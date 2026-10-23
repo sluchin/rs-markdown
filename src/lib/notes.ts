@@ -14,6 +14,14 @@ export interface HackmdLink {
   publishLink: string | null;
 }
 
+/** ノートと, 取り込んだ元のファイルとのつながり (Rust の `FileLink`). */
+export interface FileLink {
+  /** 元のファイルのパス. */
+  path: string;
+  /** 最後にファイルと合わせたときの, 本文のハッシュ. */
+  syncedHash: string;
+}
+
 /** ノートの一覧の項目 (Rust の `NoteMeta`). */
 export interface NoteMeta {
   /** ノートの ID. */
@@ -24,6 +32,8 @@ export interface NoteMeta {
   updatedAt: number;
   /** HackMD のノートとのつながり. */
   hackmd: HackmdLink | null;
+  /** 取り込んだ元のファイルとのつながり (前の版の一覧には, ない). */
+  file?: FileLink | null;
 }
 
 /** 同期の状態 (Rust の `SyncState`). */
@@ -106,4 +116,35 @@ export function syncLabel(state: SyncState): string {
     case "conflict":
       return "両方が変わっています";
   }
+}
+
+/**
+ * 元のファイルとの同期の状態の説明.
+ *
+ * @param state 状態
+ * @returns 説明
+ */
+export function fileSyncLabel(state: SyncState): string {
+  switch (state) {
+    case "unlinked":
+      return "ファイルとつないでいません";
+    case "synced":
+      return "ファイルと同じです";
+    case "localChanged":
+      return "このノートだけが変わっています (ファイルに保存できます)";
+    case "remoteChanged":
+      return "ファイルだけが変わっています (読み直せます)";
+    case "conflict":
+      return "ノートとファイルの両方が変わっています";
+  }
+}
+
+/**
+ * パスから, ファイルの名前を取り出す (`/` と `\\` のどちらの区切りも).
+ *
+ * @param path パス
+ * @returns ファイルの名前 (区切りがなければ, パスのまま)
+ */
+export function fileName(path: string): string {
+  return path.slice(Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\")) + 1);
 }

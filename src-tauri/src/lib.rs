@@ -4,10 +4,12 @@
 
 //! Markdown のエディタとビューア. ノートはローカルに保存して, HackMD のノートと同期する.
 //!
-//! ノートの保存 ([`store`]), HackMD の API ([`hackmd`]), 同期 ([`sync`]), 設定 ([`settings`]),
-//! ログ ([`logging`]) を受け持つ. 編集と表示は, フロントエンド.
+//! ノートの保存 ([`store`]), HackMD の API ([`hackmd`]), 同期 ([`sync`]), 取り込んだファイルとの同期
+//! ([`filesync`]), 設定 ([`settings`]), ログ ([`logging`]) を受け持つ. 編集と表示は, フロントエンド.
 
 pub mod errors;
+pub mod files;
+pub mod filesync;
 pub mod hackmd;
 pub mod images;
 pub mod logging;
@@ -196,6 +198,62 @@ async fn import_note(
         .map_err(|e| report("import_note", e))
 }
 
+/// 外の Markdown のファイルを, ファイルとつないだノートとして取り込む (もう取り込んであれば, そのノート).
+#[tauri::command]
+async fn import_file(state: State<'_, AppState>, path: String) -> Result<NoteMeta, CommandError> {
+    let store = state.store.lock().await;
+    let meta = filesync::import(&store, std::path::Path::new(&path), now_millis())
+        .map_err(|e| report("import_file", e))?;
+    // パスと本文は, ログに書かない
+    log::info!("Imported a file as the note {}", meta.id);
+    Ok(meta)
+}
+
+/// ノートと元のファイルの同期の状態を返す.
+#[tauri::command]
+async fn file_status(state: State<'_, AppState>, id: String) -> Result<SyncState, CommandError> {
+    let store = state.store.lock().await;
+    filesync::status(&store, &id).map_err(|e| report("file_status", e))
+}
+
+/// ノートの本文を, 元のファイルに書く.
+#[tauri::command]
+async fn push_file(
+    state: State<'_, AppState>,
+    id: String,
+    force: bool,
+) -> Result<NoteMeta, CommandError> {
+    let store = state.store.lock().await;
+    filesync::push(&store, &id, force).map_err(|e| report("push_file", e))
+}
+
+/// 元のファイルの本文を, ノートに取り込み直す.
+#[tauri::command]
+async fn pull_file(
+    state: State<'_, AppState>,
+    id: String,
+    force: bool,
+) -> Result<NoteMeta, CommandError> {
+    let store = state.store.lock().await;
+    filesync::pull(&store, &id, force, now_millis()).map_err(|e| report("pull_file", e))
+}
+
+/// ファイルとの衝突で, 両方を残す.
+#[tauri::command]
+async fn keep_both_file(state: State<'_, AppState>, id: String) -> Result<NoteMeta, CommandError> {
+    let store = state.store.lock().await;
+    filesync::keep_both(&store, &id, now_millis()).map_err(|e| report("keep_both_file", e))
+}
+
+/// ノートと元のファイルのつながりを外す.
+#[tauri::command]
+async fn unlink_file(state: State<'_, AppState>, id: String) -> Result<NoteMeta, CommandError> {
+    let store = state.store.lock().await;
+    store
+        .set_file(&id, None)
+        .map_err(|e| report("unlink_file", e))
+}
+
 /// 貼り付けた画像を置く. 中身は, 呼び出しの本体 (バイト列) で受け取る.
 ///
 /// 置いたファイルの名前を返す (ノートには `images/<名前>` と書く).
@@ -313,6 +371,7 @@ fn setup(app: &tauri::App) -> Result<AppState, Box<dyn std::error::Error>> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let state = setup(app)?;
             app.manage(state);
@@ -336,6 +395,12 @@ pub fn run() {
             check_token,
             read_log,
             clear_log,
+            import_file,
+            file_status,
+            push_file,
+            pull_file,
+            keep_both_file,
+            unlink_file,
             save_image,
             import_image,
             images_dir,

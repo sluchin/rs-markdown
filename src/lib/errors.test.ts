@@ -25,6 +25,9 @@ describe("errorMessage", () => {
     expect(errorMessage({ kind: "noToken", message: "x" })).toContain("トークン");
     expect(errorMessage({ kind: "conflict", message: "x" })).toContain("両方");
     expect(errorMessage({ kind: "invalidImage", message: "x" })).toContain("PNG");
+    expect(errorMessage({ kind: "invalidFile", message: "x" })).toContain("Markdown");
+    expect(errorMessage({ kind: "fileConflict", message: "x" })).toContain("元のファイル");
+    expect(errorMessage({ kind: "fileNotFound", message: "x" })).toContain("見つかりません");
   });
 
   it("falls back to the English message", () => {

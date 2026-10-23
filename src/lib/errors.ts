@@ -23,6 +23,11 @@ const MESSAGES: Record<string, string> = {
   notLinked: "このノートは HackMD とつないでいません。",
   io: "ノートを読み書きできませんでした。",
   invalidImage: "貼り付けられる画像は、PNG、JPEG、GIF、WebP (20 MB まで) です。",
+  invalidFile: "開けるのは、UTF-8 の Markdown のファイル (.md、.markdown、.txt。10 MB まで) です。",
+  fileConflict: "このノートと元のファイルの両方が変わっています。",
+  fileNotLinked: "このノートはファイルとつないでいません。",
+  fileNotFound: "元のファイルが見つかりません。移したか、消した場合は、つながりを外してください。",
+  fileIo: "元のファイルを読み書きできませんでした。",
 };
 
 /**

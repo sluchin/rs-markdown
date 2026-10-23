@@ -8,6 +8,8 @@ use std::io;
 
 use serde::Serialize;
 
+use crate::files::FileError;
+use crate::filesync::FileSyncError;
 use crate::hackmd::ApiError;
 use crate::images::ImageError;
 use crate::sync::SyncError;
@@ -34,6 +36,16 @@ pub enum ErrorKind {
     Io,
     /// 置けない画像 (形式か大きさ).
     InvalidImage,
+    /// 取り込めないファイル (拡張子, 大きさ, 文字コード).
+    InvalidFile,
+    /// ノートと, 元のファイルの両方が変わった.
+    FileConflict,
+    /// 元のファイルとつないでいない.
+    FileNotLinked,
+    /// 元のファイルがない.
+    FileNotFound,
+    /// 元のファイルの読み書きの失敗.
+    FileIo,
     /// そのほか.
     Other,
 }
@@ -118,6 +130,33 @@ impl From<ImageError> for CommandError {
             ImageError::Unsupported | ImageError::TooLarge => {
                 Self::new(ErrorKind::InvalidImage, e.to_string())
             }
+        }
+    }
+}
+
+impl From<FileError> for CommandError {
+    fn from(e: FileError) -> Self {
+        match e {
+            FileError::Io(io) => io.into(),
+            FileError::Unsupported | FileError::TooLarge | FileError::NotText => {
+                Self::new(ErrorKind::InvalidFile, e.to_string())
+            }
+        }
+    }
+}
+
+impl From<FileSyncError> for CommandError {
+    fn from(e: FileSyncError) -> Self {
+        let message = e.to_string();
+        match e {
+            FileSyncError::Note(io) => io.into(),
+            FileSyncError::File(FileError::Io(io)) if io.kind() == io::ErrorKind::NotFound => {
+                Self::new(ErrorKind::FileNotFound, message)
+            }
+            FileSyncError::File(FileError::Io(_)) => Self::new(ErrorKind::FileIo, message),
+            FileSyncError::File(file) => file.into(),
+            FileSyncError::Conflict => Self::new(ErrorKind::FileConflict, message),
+            FileSyncError::NotLinked => Self::new(ErrorKind::FileNotLinked, message),
         }
     }
 }

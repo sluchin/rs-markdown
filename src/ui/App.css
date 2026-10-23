@@ -182,6 +182,15 @@ input {
   white-space: nowrap;
 }
 
+/* 取り込んだ元のファイルの名前 (長ければ, 切る. 全部のパスは, 指したときに出す) */
+.file-name {
+  max-width: 16em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  align-self: center;
+}
+
 .modes {
   display: flex;
   gap: 4px;

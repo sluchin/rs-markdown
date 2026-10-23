@@ -29,6 +29,16 @@ pub struct HackmdLink {
     pub publish_link: Option<String>,
 }
 
+/// ノートと, 取り込んだ元のファイルとのつながり.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct FileLink {
+    /// 元のファイルのパス (ログに書かない).
+    pub path: String,
+    /// 最後にファイルと合わせたときの, 本文のハッシュ ([`content_hash`]). どちらが変わったかを調べるのに使う.
+    pub synced_hash: String,
+}
+
 /// ノートの一覧の, 1 つの項目.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -41,6 +51,9 @@ pub struct NoteMeta {
     pub updated_at: u64,
     /// HackMD のノートとのつながり (つないでいなければ `None`).
     pub hackmd: Option<HackmdLink>,
+    /// 取り込んだ元のファイルとのつながり (なければ `None`. 前の版の一覧には, ない).
+    #[serde(default)]
+    pub file: Option<FileLink>,
 }
 
 /// 本文のハッシュ (SHA-256 の 16 進数) を返す.
@@ -273,6 +286,22 @@ impl Store {
         }))
     }
 
+    /// 元のファイルにつないだ, ノートを探す.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - 元のファイルのパス.
+    ///
+    /// # Returns
+    ///
+    /// 見つかれば, その項目.
+    pub fn find_by_file(&self, path: &str) -> io::Result<Option<NoteMeta>> {
+        Ok(self
+            .load_index()?
+            .into_iter()
+            .find(|n| n.file.as_ref().is_some_and(|link| link.path == path)))
+    }
+
     /// ノートの本文を読む.
     ///
     /// # Arguments
@@ -309,6 +338,7 @@ impl Store {
             title: title_of(content),
             updated_at: now,
             hackmd,
+            file: None,
         };
         write_atomic(&self.note_path(&meta.id), content.as_bytes())?;
         let mut notes = self.load_index()?;
@@ -350,6 +380,20 @@ impl Store {
     /// 変えたあとの項目. ノートがなければ [`Err`].
     pub fn set_link(&self, id: &str, hackmd: Option<HackmdLink>) -> io::Result<NoteMeta> {
         self.update_meta(id, |meta| meta.hackmd = hackmd)
+    }
+
+    /// 元のファイルとのつながりを変える.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - ノートの ID.
+    /// * `file` - 新しいつながり (`None` は, つながりを外す).
+    ///
+    /// # Returns
+    ///
+    /// 変えたあとの項目. ノートがなければ [`Err`].
+    pub fn set_file(&self, id: &str, file: Option<FileLink>) -> io::Result<NoteMeta> {
+        self.update_meta(id, |meta| meta.file = file)
     }
 
     /// ノートを消す (ローカルだけ. HackMD のノートは消さない).

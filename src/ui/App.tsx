@@ -5,15 +5,19 @@
  */
 
 import { getCurrentWebview } from "@tauri-apps/api/webview";
+import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { errorMessage, isCommandError } from "../lib/errors";
+import { isFilePath, MARKDOWN_EXTENSIONS, splitDropped } from "../lib/files";
 import { FORMAT_BUTTONS } from "../lib/format";
 import { baseName, imageMarkdown } from "../lib/images";
 import { log } from "../lib/log";
 import {
   displayTitle,
+  fileName,
+  fileSyncLabel,
   filterNotes,
   formatDate,
   type NoteMeta,
@@ -24,7 +28,7 @@ import { createSaver, type Saver } from "../lib/saver";
 import { type Anchor, lineForTop, normalizeAnchors, topForLine } from "../lib/scrollSync";
 import { applyChange, toggleTask } from "../lib/tasks";
 import * as api from "./api";
-import { ConflictDialog, type Resolution } from "./ConflictDialog";
+import { ConflictDialog, type ConflictTarget, type Resolution } from "./ConflictDialog";
 import { Editor, type EditorHandle } from "./Editor";
 import { LogDialog } from "./LogDialog";
 import { Preview } from "./Preview";
@@ -109,6 +113,8 @@ export default function App() {
   const [message, setMessage] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [syncState, setSyncState] = useState<SyncState>();
+  const [fileState, setFileState] = useState<SyncState>();
+  const [conflictTarget, setConflictTarget] = useState<ConflictTarget>("hackmd");
   const [confirmDelete, setConfirmDelete] = useState(false);
   // 一覧の日時の「今日」を決める (開いたときの日時)
   const [now] = useState(() => Date.now());
@@ -176,6 +182,7 @@ export default function App() {
   const open = async (id: string) => {
     setConfirmDelete(false);
     setSyncState(undefined);
+    setFileState(undefined);
     setMessage(undefined);
     try {
       await saver.current?.flush();
@@ -189,6 +196,48 @@ export default function App() {
         window.history.pushState({ note: id }, "");
       }
       setShowList(false);
+    } catch (e) {
+      fail(e);
+    }
+  };
+
+  /**
+   * 外の Markdown のファイルを, ノートとして取り込んで, 最後に取り込んだノートを開く.
+   *
+   * @param paths ファイルのパス
+   */
+  const importFiles = async (paths: readonly string[]) => {
+    let last: NoteMeta | undefined;
+    for (const path of paths) {
+      if (!isFilePath(path)) {
+        // Android のファイルを選ぶ画面は, パスでなく URL を返す (読めない)
+        fail({ kind: "invalidFile", message: "not a file path" });
+        continue;
+      }
+      try {
+        last = await api.importFile(path);
+      } catch (e) {
+        fail(e);
+      }
+    }
+    if (last) {
+      setNotes(await api.listNotes().catch(() => notes));
+      await open(last.id);
+      setMessage(
+        "ファイルを取り込みました。「ファイルに保存」を押すと、元のファイルに書き戻します。",
+      );
+    }
+  };
+
+  const openFiles = async () => {
+    try {
+      const picked = await openDialog({
+        multiple: true,
+        filters: [{ name: "Markdown", extensions: MARKDOWN_EXTENSIONS }],
+      });
+      if (picked) {
+        await importFiles(picked);
+      }
     } catch (e) {
       fail(e);
     }
@@ -298,24 +347,36 @@ export default function App() {
     }
   }, [syncScroll]);
 
-  // 落とした画像のファイルを置いて, 落とした場所に入れる (編集しているときだけ)
+  // 落としたファイル: Markdown はノートとして取り込む. 画像は, 編集しているときに, 落とした場所に入れる
   const canDrop = Boolean(current) && mode !== "view";
+  const dropTargets = useRef({ canDrop, importFiles });
   useEffect(() => {
-    if (!canDrop) {
-      return;
-    }
+    dropTargets.current = { canDrop, importFiles };
+  });
+  useEffect(() => {
     const unlisten = getCurrentWebview()
       .onDragDropEvent((event) => {
         if (event.payload.type !== "drop") {
           return;
         }
         const { paths, position } = event.payload;
+        const { notes: markdown, others } = splitDropped(paths);
+        if (markdown.length > 0) {
+          void dropTargets.current.importFiles(markdown);
+        }
+        if (others.length === 0) {
+          return;
+        }
+        if (!dropTargets.current.canDrop) {
+          fail({ kind: "invalidFile", message: "not a Markdown file" });
+          return;
+        }
         const at = {
           x: position.x / window.devicePixelRatio,
           y: position.y / window.devicePixelRatio,
         };
         void Promise.all(
-          paths.map((path) =>
+          others.map((path) =>
             api.importImage(path).then(
               (name) => imageMarkdown(name, baseName(path)),
               (e: unknown) => {
@@ -335,7 +396,7 @@ export default function App() {
     return () => {
       void unlisten.then((stop) => stop?.());
     };
-  }, [canDrop, fail]);
+  }, [fail]);
 
   /**
    * 同期の操作をする. 待っている内容を保存してから行う. 衝突したら, 選ぶ画面を出す.
@@ -356,6 +417,11 @@ export default function App() {
     } catch (e) {
       if (isCommandError(e) && e.kind === "conflict") {
         setSyncState("conflict");
+        setConflictTarget("hackmd");
+        setDialog("conflict");
+      } else if (isCommandError(e) && e.kind === "fileConflict") {
+        setFileState("conflict");
+        setConflictTarget("file");
         setDialog("conflict");
       } else {
         fail(e);
@@ -387,9 +453,52 @@ export default function App() {
       setSyncState("unlinked");
     }, "HackMD とのつながりを外しました。");
 
+  const pushFile = (force: boolean) =>
+    sync(async (id) => {
+      updateMeta(await api.pushFile(id, force));
+      setFileState("synced");
+    }, "元のファイルに保存しました。");
+
+  const pullFile = (force: boolean) =>
+    sync(async (id) => {
+      updateMeta(await api.pullFile(id, force));
+      await load(id);
+      setFileState("synced");
+    }, "元のファイルから読み直しました。");
+
+  const fileStatus = () =>
+    sync(async (id) => setFileState(await api.fileStatus(id)), "元のファイルと比べました。");
+
+  const unlinkFile = () =>
+    sync(async (id) => {
+      updateMeta(await api.unlinkFile(id));
+      setFileState(undefined);
+    }, "ファイルとのつながりを外しました (元のファイルは、そのまま残ります)。");
+
+  /**
+   * 元のファイルとの衝突を解く.
+   *
+   * @param resolution 選んだこと
+   */
+  const resolveFile = (resolution: Resolution) => {
+    if (resolution === "push") {
+      void pushFile(true);
+    } else if (resolution === "pull") {
+      void pullFile(true);
+    } else {
+      void sync(async (id) => {
+        const created = await api.keepBothFile(id);
+        setNotes(await api.listNotes());
+        await open(created.id);
+      }, "両方を残しました。開いているのは、ファイルの内容のノートです。");
+    }
+  };
+
   const resolve = (resolution: Resolution) => {
     setDialog(undefined);
-    if (resolution === "push") {
+    if (conflictTarget === "file") {
+      resolveFile(resolution);
+    } else if (resolution === "push") {
       void push(true);
     } else if (resolution === "pull") {
       void pull(true);
@@ -418,12 +527,19 @@ export default function App() {
 
   const shown = filterNotes(notes, query);
   const link = meta?.hackmd;
+  const file = meta?.file;
 
   return (
     <div className={`app ${showList ? "show-list" : "show-note"}`}>
       <aside className="sidebar">
         <div className="toolbar">
           <button onClick={() => void create()}>新規</button>
+          <button
+            onClick={() => void openFiles()}
+            title="Markdown のファイルを、ノートとして取り込む"
+          >
+            開く
+          </button>
           <button onClick={() => setDialog("remote")}>HackMD</button>
           <button onClick={() => setDialog("settings")} aria-label="設定">
             設定
@@ -440,7 +556,7 @@ export default function App() {
         {shown.length === 0 ? (
           <p className="empty">
             {notes.length === 0
-              ? "「新規」でノートを作るか、HackMD から取り込みます。"
+              ? "「新規」でノートを作るか、「開く」でファイルを、「HackMD」で HackMD のノートを取り込みます。"
               : "見つかりません。"}
           </p>
         ) : (
@@ -455,6 +571,7 @@ export default function App() {
                   <span className="meta">
                     {formatDate(note.updatedAt, now)}
                     {note.hackmd ? " ・HackMD" : ""}
+                    {note.file ? " ・ファイル" : ""}
                   </span>
                 </button>
               </li>
@@ -532,6 +649,33 @@ export default function App() {
                 <button onClick={() => setConfirmDelete(true)}>消す</button>
               )}
             </div>
+            {file && (
+              <div className="toolbar sync">
+                <span className="file-name" title={file.path}>
+                  {fileName(file.path)}
+                </span>
+                <button
+                  onClick={() => void pushFile(false)}
+                  disabled={busy}
+                  title="このノートの内容を、元のファイルに書く"
+                >
+                  ファイルに保存
+                </button>
+                <button
+                  onClick={() => void pullFile(false)}
+                  disabled={busy}
+                  title="元のファイルの内容を、このノートに読み直す"
+                >
+                  読み直す
+                </button>
+                <button onClick={() => void fileStatus()} disabled={busy}>
+                  状態
+                </button>
+                <button onClick={() => void unlinkFile()} disabled={busy}>
+                  つながりを外す
+                </button>
+              </div>
+            )}
             {mode !== "view" && (
               <div className="toolbar format" role="toolbar" aria-label="書式">
                 {FORMAT_BUTTONS.map(({ command, label, title, key }) => (
@@ -548,9 +692,10 @@ export default function App() {
                 ))}
               </div>
             )}
-            {(syncState || message) && (
+            {(syncState || fileState || message) && (
               <p className="status" role="status">
                 {syncState && <span>{syncLabel(syncState)}</span>}
+                {fileState && <span>{fileSyncLabel(fileState)}</span>}
                 {message && <span>{message}</span>}
               </p>
             )}
@@ -591,7 +736,11 @@ export default function App() {
         <RemoteDialog onOpen={(id) => void openRemote(id)} onClose={() => setDialog(undefined)} />
       )}
       {dialog === "conflict" && (
-        <ConflictDialog onChoose={resolve} onClose={() => setDialog(undefined)} />
+        <ConflictDialog
+          target={conflictTarget}
+          onChoose={resolve}
+          onClose={() => setDialog(undefined)}
+        />
       )}
     </div>
   );

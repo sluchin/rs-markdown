@@ -5,7 +5,15 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { displayTitle, filterNotes, formatDate, syncLabel, type SyncState } from "./notes";
+import {
+  displayTitle,
+  fileName,
+  fileSyncLabel,
+  filterNotes,
+  formatDate,
+  syncLabel,
+  type SyncState,
+} from "./notes";
 
 describe("displayTitle", () => {
   it("names an empty title", () => {
@@ -51,5 +59,22 @@ describe("syncLabel", () => {
     const states: SyncState[] = ["unlinked", "synced", "localChanged", "remoteChanged", "conflict"];
     const labels = states.map(syncLabel);
     expect(new Set(labels).size).toBe(states.length);
+  });
+});
+
+describe("fileSyncLabel", () => {
+  it("describes every state", () => {
+    const states: SyncState[] = ["unlinked", "synced", "localChanged", "remoteChanged", "conflict"];
+    const labels = states.map(fileSyncLabel);
+    expect(new Set(labels).size).toBe(states.length);
+    expect(fileSyncLabel("localChanged")).toContain("ファイルに保存");
+  });
+});
+
+describe("fileName", () => {
+  it("takes the last part of the path", () => {
+    expect(fileName("/home/a/b.md")).toBe("b.md");
+    expect(fileName("C:\\Users\\a\\b.md")).toBe("b.md");
+    expect(fileName("b.md")).toBe("b.md");
   });
 });
