@@ -7,7 +7,7 @@
 use mockito::{Matcher, Server};
 use serde_json::json;
 
-use rs_markdown_lib::hackmd::{ApiError, Client, USER_AGENT, check_status, is_valid_note_id};
+use rs_mdnote_lib::hackmd::{ApiError, Client, USER_AGENT, check_status, is_valid_note_id};
 
 #[test]
 fn test_check_status() {

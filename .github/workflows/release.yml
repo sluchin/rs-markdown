@@ -68,7 +68,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
-          releaseName: 'rs-markdown ${{ github.ref_name }}'
+          releaseName: 'rs-mdnote ${{ github.ref_name }}'
           releaseDraft: true
           prerelease: false
           args: --target ${{ matrix.target }}
@@ -76,7 +76,7 @@ jobs:
       - name: Upload the bundles
         uses: actions/upload-artifact@v7
         with:
-          name: rs-markdown-${{ matrix.os }}
+          name: rs-mdnote-${{ matrix.os }}
           path: |
             src-tauri/target/${{ matrix.target }}/release/bundle/deb/*.deb
             src-tauri/target/${{ matrix.target }}/release/bundle/rpm/*.rpm
@@ -138,7 +138,7 @@ jobs:
         if: steps.key.outputs.enabled == 'true'
         run: |
           printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
-          export APK_NAME="rs-markdown_${GITHUB_REF_NAME}_android_arm64.apk"
+          export APK_NAME="rs-mdnote_${GITHUB_REF_NAME}_android_arm64.apk"
           env UID="$(id -u)" GID="$(id -g)" docker compose run --rm -T \
             -v "$RUNNER_TEMP/release.jks:/tmp/release.jks:ro" \
             -e ANDROID_KEYSTORE_PASSWORD -e ANDROID_KEY_ALIAS -e ANDROID_KEY_PASSWORD \
@@ -163,6 +163,6 @@ jobs:
         if: steps.key.outputs.enabled == 'true'
         uses: actions/upload-artifact@v7
         with:
-          name: rs-markdown-android
+          name: rs-mdnote-android
           path: ${{ env.APK_DIR }}/${{ env.APK_NAME }}
           if-no-files-found: error

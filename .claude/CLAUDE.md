@@ -1,6 +1,6 @@
 # プロジェクト設定
 
-Markdown のエディタとビューア。ノートはローカル (アプリのデータの `notes/`) に保存して、HackMD のノートと同期する。PC (Linux, Windows, macOS) と Android。Tauri 2 (Rust) + React (TypeScript)。
+Markdown のエディタとビューア (rs-mdnote。前の名前は rs-markdown)。ノートはローカル (アプリのデータの `notes/`) に保存して、HackMD のノートと同期する。PC (Linux, Windows, macOS) と Android。Tauri 2 (Rust) + React (TypeScript)。
 
 ```
 編集 (ui/Editor.tsx: CodeMirror 6) ─> 自動保存 (lib/saver.ts) ─> Rust (store.rs: notes/<ID>.md と index.json)
@@ -8,6 +8,7 @@ Markdown のエディタとビューア。ノートはローカル (アプリの
 同期 (送る, 取り込む) ─> Rust (sync.rs) ─> HackMD の API (hackmd.rs. https://api.hackmd.io/v1)
 ```
 
+- アプリの識別子 (`tauri.conf.json` の `identifier`、Android の `applicationId`) は `jp.sluchin.rsmarkdown` のまま変えない (変えると、ノートと設定の保存先が変わる)。
 - `src/lib/`: DOM と Tauri に依存しない処理。行と分岐のカバレッジ 100% (Vitest + jsdom)。`markdown.ts` (変換と安全化)、`math.ts` (数式の解析)、`headings.ts` (見出しの `id` と目次)、`format.ts` (書式のツールバーとショートカットの書き換え)、`scrollSync.ts` (編集と表示の位置の対応)、`images.ts` (ノートの中の画像の場所)。
 - `src/ui/`: React の画面。薄く保つ。テストは置かない。Rust の呼び出しは `ui/api.ts` にまとめる。
 - `src-tauri/src/`: `store.rs` (ノートの保存)、`hackmd.rs` (API)、`sync.rs` (同期)、`settings.rs` (トークン)、`errors.rs` (画面に返すエラー)、`logging.rs` (ログ。doc-translator-core と同じ)、`images.rs` (貼り付けた画像の保存)、`lib.rs` (コマンドと起動)。

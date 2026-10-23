@@ -9,8 +9,8 @@ use std::path::Path;
 
 use tempfile::tempdir;
 
-use rs_markdown_lib::errors::{CommandError, ErrorKind};
-use rs_markdown_lib::images::{
+use rs_mdnote_lib::errors::{CommandError, ErrorKind};
+use rs_mdnote_lib::images::{
     ImageError, MAX_IMAGE_BYTES, detect_format, images_dir, import, is_valid_name, save,
 };
 

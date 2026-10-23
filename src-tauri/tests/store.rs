@@ -8,7 +8,7 @@ use std::fs;
 
 use tempfile::tempdir;
 
-use rs_markdown_lib::store::{
+use rs_mdnote_lib::store::{
     HackmdLink, MAX_TITLE_CHARS, Store, content_hash, is_valid_id, title_of,
 };
 

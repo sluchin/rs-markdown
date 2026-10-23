@@ -1,6 +1,6 @@
 name: Build the development image
 description: >
-  開発用の Docker イメージ (docker/Dockerfile の dev ステージ) を, rs-markdown-dev:latest としてビルドする.
+  開発用の Docker イメージ (docker/Dockerfile の dev ステージ) を, rs-mdnote-dev:latest としてビルドする.
   docker compose のサービスは, このイメージを使う. レイヤーを GitHub Actions のキャッシュに
   保存するので, 2 回目からは, 短時間で終わる.
   使う前に, actions/checkout を実行しておくこと.
@@ -22,6 +22,6 @@ runs:
         target: dev
         load: true
         push: false
-        tags: rs-markdown-dev:latest
+        tags: rs-mdnote-dev:latest
         cache-from: type=gha
         cache-to: type=gha,mode=max,ignore-error=true

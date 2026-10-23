@@ -6,9 +6,9 @@
 
 use std::io;
 
-use rs_markdown_lib::errors::{CommandError, ErrorKind};
-use rs_markdown_lib::hackmd::ApiError;
-use rs_markdown_lib::sync::SyncError;
+use rs_mdnote_lib::errors::{CommandError, ErrorKind};
+use rs_mdnote_lib::hackmd::ApiError;
+use rs_mdnote_lib::sync::SyncError;
 
 #[test]
 fn test_from_api_error() {

@@ -298,7 +298,7 @@ fn setup(app: &tauri::App) -> Result<AppState, Box<dyn std::error::Error>> {
     let data_dir = app.path().app_data_dir()?;
     let config_dir = app.path().app_config_dir()?;
     logging::init_logging(&logging::log_path(&data_dir));
-    log::info!("Starting rs-markdown {}", env!("CARGO_PKG_VERSION"));
+    log::info!("Starting rs-mdnote {}", env!("CARGO_PKG_VERSION"));
     let store = Store::open(&data_dir.join("notes"))?;
     Ok(AppState {
         store: Mutex::new(store),

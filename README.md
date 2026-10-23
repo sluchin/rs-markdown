@@ -1,4 +1,4 @@
-# rs-markdown
+# rs-mdnote
 
 Markdown のエディタとビューア。ノートは端末の中に保存して、[HackMD](https://hackmd.io/) のノートと同期できます。PC (Linux, Windows, macOS) と Android で動きます (Tauri 2)。
 
@@ -54,7 +54,7 @@ PC で開発するときは、保存したトークンがなければ、環境�
 | 設定 (トークン) | アプリの設定の `settings.json`                        |
 | ログ            | アプリのデータの `logs/app.log`                       |
 
-Linux では、アプリのデータと設定は `~/.local/share/jp.sluchin.rsmarkdown/` と `~/.config/jp.sluchin.rsmarkdown/` です。
+Linux では、アプリのデータと設定は `~/.local/share/jp.sluchin.rsmarkdown/` と `~/.config/jp.sluchin.rsmarkdown/` です。アプリの識別子 (`jp.sluchin.rsmarkdown`) は、前の名前 (rs-markdown) のままです (変えると、ノートと設定の場所が変わるため)。
 
 ## 開発
 
@@ -68,7 +68,7 @@ docker compose run --rm test
 docker compose run --rm coverage
 docker compose run --rm format
 docker compose run --rm analyze
-docker compose run --rm build-desktop   # src-tauri/target/debug/rs-markdown
+docker compose run --rm build-desktop   # src-tauri/target/debug/rs-mdnote
 docker compose run --rm build-android   # src-tauri/gen/android/app/build/outputs/apk/universal/debug/
 ```
 

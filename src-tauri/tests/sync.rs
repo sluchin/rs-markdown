@@ -8,9 +8,9 @@ use mockito::{Matcher, Server, ServerGuard};
 use serde_json::json;
 use tempfile::{TempDir, tempdir};
 
-use rs_markdown_lib::hackmd::Client;
-use rs_markdown_lib::store::{HackmdLink, Store, content_hash};
-use rs_markdown_lib::sync::{
+use rs_mdnote_lib::hackmd::Client;
+use rs_mdnote_lib::store::{HackmdLink, Store, content_hash};
+use rs_mdnote_lib::sync::{
     self, SyncError, SyncState, keep_both, pull, push, remote_list, state_of,
 };
 
@@ -58,7 +58,7 @@ fn test_error_messages() {
         SyncError::Conflict,
         SyncError::NotLinked,
         SyncError::Io(std::io::Error::other("x")),
-        SyncError::Api(rs_markdown_lib::hackmd::ApiError::NotFound),
+        SyncError::Api(rs_mdnote_lib::hackmd::ApiError::NotFound),
     ] {
         assert!(!e.to_string().is_empty());
     }
