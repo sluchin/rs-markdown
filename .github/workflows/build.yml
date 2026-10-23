@@ -2,7 +2,7 @@ name: CI
 
 # 開発環境 (Dockerfile) と同じイメージで docker compose のサービスを実行する.
 #   test    : フロントエンド (Vitest) と Rust の単体テスト
-#   coverage: src/lib の行と分岐のカバレッジが 100% であること
+#   coverage: src/lib と Rust (src-tauri) のカバレッジが 100% であること
 #   format  : 整形の確認 (Prettier, rustfmt)
 #   analyze : 型の検査, ESLint, Clippy
 #   build-desktop / build-android: PC (Linux) と Android のデバッグ版のビルド

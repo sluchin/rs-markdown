@@ -249,3 +249,13 @@ async fn test_remote_list() {
     assert_eq!(entries[0].local_id.as_deref(), Some(local.as_str()));
     assert_eq!(entries[1].local_id, None);
 }
+
+#[tokio::test]
+async fn test_sync_reports_the_local_errors() {
+    let (_dir, store, _server, client) = setup().await;
+    // ないノート
+    let e = sync::status(&store, &client, "00000000-0000-4000-8000-000000000000")
+        .await
+        .unwrap_err();
+    assert!(matches!(e, SyncError::Io(_)));
+}

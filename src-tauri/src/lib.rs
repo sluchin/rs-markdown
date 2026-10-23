@@ -5,8 +5,9 @@
 //! Markdown のエディタとビューア. ノートはローカルに保存して, HackMD のノートと同期する.
 //!
 //! ノートの保存 ([`store`]), HackMD の API ([`hackmd`]), 同期 ([`sync`]), 取り込んだファイルとの同期
-//! ([`filesync`]), 設定 ([`settings`]), ログ ([`logging`]) を受け持つ. 編集と表示は, フロントエンド.
+//! ([`filesync`]), 設定 ([`settings`]), ログ ([`logging`]), 画面から呼ぶコマンド ([`commands`]) を受け持つ. 編集と表示は, フロントエンド.
 
+pub mod commands;
 pub mod errors;
 pub mod files;
 pub mod filesync;
@@ -17,337 +18,225 @@ pub mod settings;
 pub mod store;
 pub mod sync;
 
-use std::path::PathBuf;
-use std::time::{SystemTime, UNIX_EPOCH};
-
-use serde::Serialize;
 use tauri::{Manager, State};
 use tokio::sync::Mutex;
 
-use errors::{CommandError, ErrorKind};
-use settings::TokenSource;
+use commands::{AppState, SettingsView};
+use errors::CommandError;
 use store::{NoteMeta, Store};
 use sync::{RemoteEntry, SyncState};
 
-/// アプリの状態.
-struct AppState {
-    /// ノートの保存先. 一覧の読み書きが重ならないように, 1 つずつ使う.
-    store: Mutex<Store>,
-    /// アプリのデータのディレクトリ (ログ).
-    data_dir: PathBuf,
-    /// 設定のファイル.
-    settings_path: PathBuf,
-}
-
-/// 今の日時 (UNIX 時間のミリ秒) を返す.
-fn now_millis() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |d| u64::try_from(d.as_millis()).unwrap_or(u64::MAX))
-}
-
-/// 使う HackMD の API のトークンと, その取り元を返す.
-fn token(state: &AppState) -> (Option<String>, TokenSource) {
-    let saved = settings::load(&state.settings_path);
-    let env = std::env::var(settings::TOKEN_ENV).ok();
-    settings::effective_token(&saved, env.as_deref())
-}
-
-/// HackMD の API の呼び出しを作る. トークンがなければ, エラー.
-fn client(state: &AppState) -> Result<hackmd::Client, CommandError> {
-    let (Some(token), _) = token(state) else {
-        return Err(CommandError::no_token());
-    };
-    Ok(hackmd::Client::new(hackmd::API_BASE, &token)?)
-}
-
-/// 失敗をログに書いて, 画面に返すエラーにする.
-fn report(context: &str, e: impl Into<CommandError>) -> CommandError {
-    let e = e.into();
-    log::warn!("{} failed: {}", context, e.message);
-    e
-}
+// 画面から呼ぶコマンド. 中身は `commands` にあり, ここでは, アプリの状態を渡すだけ.
 
 /// ノートの一覧を, 新しく変えた順に返す.
+#[cfg(not(tarpaulin_include))]
 #[tauri::command]
 async fn list_notes(state: State<'_, AppState>) -> Result<Vec<NoteMeta>, CommandError> {
-    let store = state.store.lock().await;
-    store.list().map_err(|e| report("list_notes", e))
+    commands::list_notes(&state).await
 }
 
 /// ノートの本文を返す.
+#[cfg(not(tarpaulin_include))]
 #[tauri::command]
 async fn read_note(state: State<'_, AppState>, id: String) -> Result<String, CommandError> {
-    let store = state.store.lock().await;
-    store.read(&id).map_err(|e| report("read_note", e))
+    commands::read_note(&state, &id).await
 }
 
 /// ノートを作る.
+#[cfg(not(tarpaulin_include))]
 #[tauri::command]
 async fn create_note(
     state: State<'_, AppState>,
     content: String,
 ) -> Result<NoteMeta, CommandError> {
-    let store = state.store.lock().await;
-    let meta = store
-        .create(&content, None, now_millis())
-        .map_err(|e| report("create_note", e))?;
-    log::info!("Created the note {}", meta.id);
-    Ok(meta)
+    commands::create_note(&state, &content).await
 }
 
 /// ノートの本文を保存する.
+#[cfg(not(tarpaulin_include))]
 #[tauri::command]
 async fn save_note(
     state: State<'_, AppState>,
     id: String,
     content: String,
 ) -> Result<NoteMeta, CommandError> {
-    let store = state.store.lock().await;
-    store
-        .save(&id, &content, now_millis())
-        .map_err(|e| report("save_note", e))
+    commands::save_note(&state, &id, &content).await
 }
 
 /// ノートを消す (ローカルだけ).
+#[cfg(not(tarpaulin_include))]
 #[tauri::command]
 async fn delete_note(state: State<'_, AppState>, id: String) -> Result<(), CommandError> {
-    let store = state.store.lock().await;
-    store.delete(&id).map_err(|e| report("delete_note", e))?;
-    log::info!("Deleted the note {}", id);
-    Ok(())
+    commands::delete_note(&state, &id).await
 }
 
 /// ノートと HackMD のノートのつながりを外す.
+#[cfg(not(tarpaulin_include))]
 #[tauri::command]
 async fn unlink_note(state: State<'_, AppState>, id: String) -> Result<NoteMeta, CommandError> {
-    let store = state.store.lock().await;
-    store
-        .set_link(&id, None)
-        .map_err(|e| report("unlink_note", e))
+    commands::unlink_note(&state, &id).await
 }
 
 /// ノートの同期の状態を, HackMD に問い合わせて返す.
+#[cfg(not(tarpaulin_include))]
 #[tauri::command]
 async fn note_status(state: State<'_, AppState>, id: String) -> Result<SyncState, CommandError> {
-    let client = client(&state)?;
-    let store = state.store.lock().await;
-    sync::status(&store, &client, &id)
-        .await
-        .map_err(|e| report("note_status", e))
+    commands::note_status(&state, &id).await
 }
 
 /// ノートを HackMD に送る.
+#[cfg(not(tarpaulin_include))]
 #[tauri::command]
 async fn push_note(
     state: State<'_, AppState>,
     id: String,
     force: bool,
 ) -> Result<NoteMeta, CommandError> {
-    let client = client(&state)?;
-    let store = state.store.lock().await;
-    sync::push(&store, &client, &id, force)
-        .await
-        .map_err(|e| report("push_note", e))
+    commands::push_note(&state, &id, force).await
 }
 
 /// HackMD のノートを, ローカルのノートに取り込む.
+#[cfg(not(tarpaulin_include))]
 #[tauri::command]
 async fn pull_note(
     state: State<'_, AppState>,
     id: String,
     force: bool,
 ) -> Result<NoteMeta, CommandError> {
-    let client = client(&state)?;
-    let store = state.store.lock().await;
-    sync::pull(&store, &client, &id, force, now_millis())
-        .await
-        .map_err(|e| report("pull_note", e))
+    commands::pull_note(&state, &id, force).await
 }
 
 /// 衝突したときに, 両方を残す.
+#[cfg(not(tarpaulin_include))]
 #[tauri::command]
 async fn keep_both(state: State<'_, AppState>, id: String) -> Result<NoteMeta, CommandError> {
-    let client = client(&state)?;
-    let store = state.store.lock().await;
-    sync::keep_both(&store, &client, &id, now_millis())
-        .await
-        .map_err(|e| report("keep_both", e))
+    commands::keep_both(&state, &id).await
 }
 
 /// HackMD のノートの一覧を返す.
+#[cfg(not(tarpaulin_include))]
 #[tauri::command]
 async fn list_remote(state: State<'_, AppState>) -> Result<Vec<RemoteEntry>, CommandError> {
-    let client = client(&state)?;
-    let store = state.store.lock().await;
-    sync::remote_list(&store, &client)
-        .await
-        .map_err(|e| report("list_remote", e))
+    commands::list_remote(&state).await
 }
 
 /// HackMD のノートを, ローカルに取り込む.
+#[cfg(not(tarpaulin_include))]
 #[tauri::command]
 async fn import_note(
     state: State<'_, AppState>,
     note_id: String,
 ) -> Result<NoteMeta, CommandError> {
-    let client = client(&state)?;
-    let store = state.store.lock().await;
-    sync::import(&store, &client, &note_id, now_millis())
-        .await
-        .map_err(|e| report("import_note", e))
+    commands::import_note(&state, &note_id).await
 }
 
-/// 外の Markdown のファイルを, ファイルとつないだノートとして取り込む (もう取り込んであれば, そのノート).
+/// 外の Markdown のファイルを, ファイルとつないだノートとして取り込む.
+#[cfg(not(tarpaulin_include))]
 #[tauri::command]
 async fn import_file(state: State<'_, AppState>, path: String) -> Result<NoteMeta, CommandError> {
-    let store = state.store.lock().await;
-    let meta = filesync::import(&store, std::path::Path::new(&path), now_millis())
-        .map_err(|e| report("import_file", e))?;
-    // パスと本文は, ログに書かない
-    log::info!("Imported a file as the note {}", meta.id);
-    Ok(meta)
+    commands::import_file(&state, &path).await
 }
 
 /// ノートと元のファイルの同期の状態を返す.
+#[cfg(not(tarpaulin_include))]
 #[tauri::command]
 async fn file_status(state: State<'_, AppState>, id: String) -> Result<SyncState, CommandError> {
-    let store = state.store.lock().await;
-    filesync::status(&store, &id).map_err(|e| report("file_status", e))
+    commands::file_status(&state, &id).await
 }
 
 /// ノートの本文を, 元のファイルに書く.
+#[cfg(not(tarpaulin_include))]
 #[tauri::command]
 async fn push_file(
     state: State<'_, AppState>,
     id: String,
     force: bool,
 ) -> Result<NoteMeta, CommandError> {
-    let store = state.store.lock().await;
-    filesync::push(&store, &id, force).map_err(|e| report("push_file", e))
+    commands::push_file(&state, &id, force).await
 }
 
 /// 元のファイルの本文を, ノートに取り込み直す.
+#[cfg(not(tarpaulin_include))]
 #[tauri::command]
 async fn pull_file(
     state: State<'_, AppState>,
     id: String,
     force: bool,
 ) -> Result<NoteMeta, CommandError> {
-    let store = state.store.lock().await;
-    filesync::pull(&store, &id, force, now_millis()).map_err(|e| report("pull_file", e))
+    commands::pull_file(&state, &id, force).await
 }
 
 /// ファイルとの衝突で, 両方を残す.
+#[cfg(not(tarpaulin_include))]
 #[tauri::command]
 async fn keep_both_file(state: State<'_, AppState>, id: String) -> Result<NoteMeta, CommandError> {
-    let store = state.store.lock().await;
-    filesync::keep_both(&store, &id, now_millis()).map_err(|e| report("keep_both_file", e))
+    commands::keep_both_file(&state, &id).await
 }
 
 /// ノートと元のファイルのつながりを外す.
+#[cfg(not(tarpaulin_include))]
 #[tauri::command]
 async fn unlink_file(state: State<'_, AppState>, id: String) -> Result<NoteMeta, CommandError> {
-    let store = state.store.lock().await;
-    store
-        .set_file(&id, None)
-        .map_err(|e| report("unlink_file", e))
+    commands::unlink_file(&state, &id).await
 }
 
-/// 貼り付けた画像を置く. 中身は, 呼び出しの本体 (バイト列) で受け取る.
-///
-/// 置いたファイルの名前を返す (ノートには `images/<名前>` と書く).
+/// 貼り付けた画像を置く. 中身は, 呼び出しの本体 (バイト列) で受け取る. 置いたファイルの名前を返す.
+#[cfg(not(tarpaulin_include))]
 #[tauri::command]
 fn save_image(
     state: State<'_, AppState>,
     request: tauri::ipc::Request<'_>,
 ) -> Result<String, CommandError> {
-    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
-        return Err(report(
-            "save_image",
-            CommandError::new(ErrorKind::InvalidImage, "the image must be sent as bytes"),
-        ));
-    };
-    let name = images::save(&images::images_dir(&state.data_dir), bytes)
-        .map_err(|e| report("save_image", e))?;
-    log::info!("Saved the image {}", name);
-    Ok(name)
+    commands::save_image(&state, request.body())
 }
 
-/// 落とした画像のファイルを, 写して置く. 置いたファイルの名前を返す.
+/// 落とした画像のファイルを, 写して置く.
+#[cfg(not(tarpaulin_include))]
 #[tauri::command]
 fn import_image(state: State<'_, AppState>, path: String) -> Result<String, CommandError> {
-    let name = images::import(
-        &images::images_dir(&state.data_dir),
-        std::path::Path::new(&path),
-    )
-    .map_err(|e| report("import_image", e))?;
-    log::info!("Imported the image {}", name);
-    Ok(name)
+    commands::import_image(&state, &path)
 }
 
-/// 画像を置くディレクトリを返す (表示で, 画像を読むのに使う).
+/// 画像を置くディレクトリを返す.
+#[cfg(not(tarpaulin_include))]
 #[tauri::command]
 fn images_dir(state: State<'_, AppState>) -> String {
-    images::images_dir(&state.data_dir)
-        .to_string_lossy()
-        .into_owned()
-}
-
-/// 画面に返す, 設定 (トークンそのものは返さない).
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct SettingsView {
-    /// トークンの取り元.
-    token_source: TokenSource,
+    commands::images_dir(&state)
 }
 
 /// 設定を返す.
+#[cfg(not(tarpaulin_include))]
 #[tauri::command]
 fn get_settings(state: State<'_, AppState>) -> SettingsView {
-    SettingsView {
-        token_source: token(&state).1,
-    }
+    commands::get_settings(&state)
 }
 
 /// HackMD の API のトークンを保存する (空なら, 消す).
+#[cfg(not(tarpaulin_include))]
 #[tauri::command]
 fn set_token(state: State<'_, AppState>, token: Option<String>) -> Result<(), CommandError> {
-    let saved = settings::load(&state.settings_path);
-    settings::save(
-        &state.settings_path,
-        &settings::with_token(&saved, token.as_deref()),
-    )
-    .map_err(|e| report("set_token", e))?;
-    log::info!("Saved the HackMD settings");
-    Ok(())
+    commands::set_token(&state, token.as_deref())
 }
 
 /// トークンを確かめる. 持ち主の名前を返す.
+#[cfg(not(tarpaulin_include))]
 #[tauri::command]
 async fn check_token(state: State<'_, AppState>) -> Result<String, CommandError> {
-    let me = client(&state)?
-        .me()
-        .await
-        .map_err(|e| report("check_token", e))?;
-    Ok(me.name)
+    commands::check_token(&state).await
 }
 
 /// アプリのログの末尾を返す.
+#[cfg(not(tarpaulin_include))]
 #[tauri::command]
 async fn read_log(state: State<'_, AppState>) -> Result<String, CommandError> {
-    let path = logging::log_path(&state.data_dir);
-    logging::read_tail(&path, logging::MAX_BACKUPS, logging::MAX_READ_BYTES)
-        .map_err(|e| report("read_log", e))
+    commands::read_log(&state)
 }
 
 /// アプリのログを消す.
+#[cfg(not(tarpaulin_include))]
 #[tauri::command]
 fn clear_log(state: State<'_, AppState>) -> Result<(), CommandError> {
-    logging::clear_logs(&logging::log_path(&state.data_dir), logging::MAX_BACKUPS)
-        .map_err(|e| report("clear_log", e))?;
-    log::info!("Cleared the log");
-    Ok(())
+    commands::clear_log(&state)
 }
 
 /// アプリの状態を作る (ディレクトリを決めて, ログを始める).
@@ -362,6 +251,8 @@ fn setup(app: &tauri::App) -> Result<AppState, Box<dyn std::error::Error>> {
         store: Mutex::new(store),
         data_dir,
         settings_path: settings::settings_path(&config_dir),
+        api_base: hackmd::API_BASE.to_string(),
+        env_token: std::env::var(settings::TOKEN_ENV).ok(),
     })
 }
 

@@ -11,7 +11,7 @@ use tempfile::tempdir;
 
 use rs_mdnote_lib::errors::{CommandError, ErrorKind};
 use rs_mdnote_lib::files::{
-    FileError, MAX_FILE_BYTES, is_markdown_file, read_markdown, write_markdown,
+    FileError, MAX_FILE_BYTES, is_markdown_file, read_markdown, remove_on_error, write_markdown,
 };
 
 #[test]
@@ -154,4 +154,18 @@ fn test_write_markdown_does_not_create_or_write_other_files() {
         Err(FileError::TooLarge)
     ));
     assert_eq!(fs::read_to_string(&md).unwrap(), "x");
+}
+
+#[test]
+fn test_remove_on_error_removes_the_temporary_file_only_on_failure() {
+    let dir = tempdir().unwrap();
+    let tmp = dir.path().join("a.md.tmp");
+    fs::write(&tmp, "x").unwrap();
+    assert!(remove_on_error(&tmp, Ok(())).is_ok());
+    assert!(tmp.exists());
+    let e = remove_on_error(&tmp, Err(std::io::Error::other("rename"))).unwrap_err();
+    assert_eq!(e.to_string(), "rename");
+    assert!(!tmp.exists());
+    // 消せなくても (もうない), 元の失敗を返す
+    assert!(remove_on_error(&tmp, Err(std::io::Error::other("rename"))).is_err());
 }

@@ -122,4 +122,8 @@ fn test_image_error_to_command_error() {
     assert!(too_large.message.contains("larger than"));
     let io = CommandError::from(ImageError::Io(std::io::Error::other("boom")));
     assert_eq!((io.kind, io.message.as_str()), (ErrorKind::Io, "boom"));
+    assert_eq!(
+        ImageError::Io(std::io::Error::other("boom")).to_string(),
+        "boom"
+    );
 }

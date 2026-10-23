@@ -135,9 +135,22 @@ pub fn write_markdown(path: &Path, content: &str) -> Result<(), FileError> {
     fs::write(&tmp, text.as_bytes())?;
     let renamed = fs::set_permissions(&tmp, fs::metadata(&target)?.permissions())
         .and_then(|()| fs::rename(&tmp, &target));
-    if renamed.is_err() {
-        // 一時的なファイルを残さない (消せなくても, 元の失敗を返す)
-        let _ = fs::remove_file(&tmp);
+    remove_on_error(Path::new(&tmp), renamed).map_err(FileError::from)
+}
+
+/// 失敗していたら, 一時的なファイルを消す (残さない). 消せなくても, 元の失敗を返す.
+///
+/// # Arguments
+///
+/// * `tmp` - 一時的なファイル.
+/// * `result` - 一時的なファイルを使った処理の結果.
+///
+/// # Returns
+///
+/// `result` のまま.
+pub fn remove_on_error(tmp: &Path, result: io::Result<()>) -> io::Result<()> {
+    if result.is_err() {
+        let _ = fs::remove_file(tmp);
     }
-    renamed.map_err(FileError::from)
+    result
 }

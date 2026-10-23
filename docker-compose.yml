@@ -36,10 +36,10 @@ services:
     <<: *common
     command: sh -c "npm test && cd src-tauri && cargo test"
 
-  # フロントエンドのカバレッジ (src/lib の行と分岐が 100% でなければ失敗する)
+  # カバレッジ. フロントエンド (src/lib) と Rust (cargo tarpaulin) の, どちらも 100% でなければ失敗する
   coverage:
     <<: *common
-    command: npm run coverage
+    command: sh -c "npm run coverage && cd src-tauri && cargo tarpaulin --engine llvm --fail-under 100 --out Html"
 
   # 整形の確認 (Prettier と rustfmt). 整形が必要なら失敗する
   format:

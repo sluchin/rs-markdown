@@ -215,6 +215,27 @@ fn test_read_tail_fails_on_a_directory() {
 }
 
 #[test]
+fn test_read_tail_fails_when_it_cannot_open() {
+    let dir = tempdir().unwrap();
+    // ディレクトリの代わりにファイルがあるので, 開けない (ない, ではない)
+    let file = dir.path().join("logs");
+    fs::write(&file, "x").unwrap();
+    assert!(read_tail(&file.join("app.log"), 0, 1024).is_err());
+}
+
+#[test]
+fn test_rotating_file_flush() {
+    let dir = tempdir().unwrap();
+    let mut file = RotatingFile::open(&dir.path().join("app.log"), 1024, 1).unwrap();
+    file.write_all(b"line\n").unwrap();
+    file.flush().unwrap();
+    assert_eq!(
+        fs::read_to_string(dir.path().join("app.log")).unwrap(),
+        "line\n"
+    );
+}
+
+#[test]
 fn test_clear_logs_removes_the_backups_and_empties_the_log() {
     let dir = tempdir().unwrap();
     let path = dir.path().join("app.log");

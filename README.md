@@ -77,7 +77,7 @@ export UID GID=$(id -g)
 docker compose build
 docker compose run --rm install
 docker compose run --rm test
-docker compose run --rm coverage
+docker compose run --rm coverage        # src/lib と Rust が 100% (Rust の結果は src-tauri/tarpaulin-report.html)
 docker compose run --rm format
 docker compose run --rm analyze
 docker compose run --rm build-desktop   # src-tauri/target/debug/rs-mdnote
