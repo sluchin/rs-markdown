@@ -16,10 +16,10 @@ val tauriProperties = Properties().apply {
 
 android {
     compileSdk = 37
-    namespace = "jp.sluchin.rsmarkdown"
+    namespace = "jp.sluchin.rsmdnote"
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
-        applicationId = "jp.sluchin.rsmarkdown"
+        applicationId = "jp.sluchin.rsmdnote"
         minSdk = 24
         targetSdk = 37
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()

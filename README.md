@@ -54,7 +54,7 @@ PC で開発するときは、保存したトークンがなければ、環境�
 | 設定 (トークン) | アプリの設定の `settings.json`                        |
 | ログ            | アプリのデータの `logs/app.log`                       |
 
-Linux では、アプリのデータと設定は `~/.local/share/jp.sluchin.rsmarkdown/` と `~/.config/jp.sluchin.rsmarkdown/` です。アプリの識別子 (`jp.sluchin.rsmarkdown`) は、前の名前 (rs-markdown) のままです (変えると、ノートと設定の場所が変わるため)。
+Linux では、アプリのデータと設定は `~/.local/share/jp.sluchin.rsmdnote/` と `~/.config/jp.sluchin.rsmdnote/` です。
 
 ## 開発
 
