@@ -8,9 +8,9 @@ Markdown のエディタとビューア。ノートはローカル (アプリの
 同期 (送る, 取り込む) ─> Rust (sync.rs) ─> HackMD の API (hackmd.rs. https://api.hackmd.io/v1)
 ```
 
-- `src/lib/`: DOM と Tauri に依存しない処理。行と分岐のカバレッジ 100% (Vitest + jsdom)。
+- `src/lib/`: DOM と Tauri に依存しない処理。行と分岐のカバレッジ 100% (Vitest + jsdom)。`markdown.ts` (変換と安全化)、`math.ts` (数式の解析)、`headings.ts` (見出しの `id` と目次)、`format.ts` (書式のツールバーとショートカットの書き換え)、`scrollSync.ts` (編集と表示の位置の対応)、`images.ts` (ノートの中の画像の場所)。
 - `src/ui/`: React の画面。薄く保つ。テストは置かない。Rust の呼び出しは `ui/api.ts` にまとめる。
-- `src-tauri/src/`: `store.rs` (ノートの保存)、`hackmd.rs` (API)、`sync.rs` (同期)、`settings.rs` (トークン)、`errors.rs` (画面に返すエラー)、`logging.rs` (ログ。doc-translator-core と同じ)、`lib.rs` (コマンドと起動)。
+- `src-tauri/src/`: `store.rs` (ノートの保存)、`hackmd.rs` (API)、`sync.rs` (同期)、`settings.rs` (トークン)、`errors.rs` (画面に返すエラー)、`logging.rs` (ログ。doc-translator-core と同じ)、`images.rs` (貼り付けた画像の保存)、`lib.rs` (コマンドと起動)。
 
 ## 同期
 
@@ -24,8 +24,10 @@ Markdown のエディタとビューア。ノートはローカル (アプリの
 
 - **HackMD の API のトークンを、ログ、エラー、画面に出さない。** 画面に返すのは、あるかどうかと取り元だけ (`SettingsView`)。保存は設定のディレクトリの `settings.json` (Unix は 600)。保存したトークンがなければ、実行するときの環境変数 `HACKMD_APIKEY` を使う (PC の開発用。ビルドに入れない。`option_env!` を使わない)。
 - 表示する HTML は、必ず `sanitize()` (DOMPurify) を通す (`renderMarkdown`)。`dangerouslySetInnerHTML` に渡すのはその結果だけ。
+- 数式と図は、安全にした後に描く (`Preview.tsx`)。変換では、TeX と Mermaid の文を、文字として要素に入れるだけにする (スタイル属性を許さないため)。KaTeX は `trust: false`、Mermaid は `securityLevel: "strict"` で描く。
 - 表示の中のリンクは、アプリの中で開かない (`lib/links.ts`。`http`、`https`、`mailto` だけをブラウザで開く)。
-- CSP (`tauri.conf.json`) は、画像だけを `https:` と `data:` に広げる (ノートの画像のため)。スクリプトと通信は広げない。HackMD との通信は Rust から行う。
+- CSP (`tauri.conf.json`) は、画像だけを `https:` と `data:` と asset プロトコル (`asset:`、`http://asset.localhost`) に広げる (ノートの画像のため)。asset プロトコルで読めるのは、アプリのデータの `images/` だけ (`assetProtocol.scope`)。スクリプトと通信は広げない。HackMD との通信は Rust から行う。
+- 画像は、名前ではなく中身 (始めのバイト) で形式を決め、PNG、JPEG、GIF、WebP だけを置く (`images::detect_format`。SVG は置かない)。名前は `<UUID>.<拡張子>` にする。
 - ノートの ID は UUID の形だけを通す (`store::is_valid_id`。ファイルの名前に使う)。HackMD のノートの ID も、URL のパスに入れる前に確かめる (`hackmd::is_valid_note_id`)。
 - ノートの本文をログに書かない。
 

@@ -24,6 +24,7 @@ describe("errorMessage", () => {
   it("uses the message for the kind", () => {
     expect(errorMessage({ kind: "noToken", message: "x" })).toContain("トークン");
     expect(errorMessage({ kind: "conflict", message: "x" })).toContain("両方");
+    expect(errorMessage({ kind: "invalidImage", message: "x" })).toContain("PNG");
   });
 
   it("falls back to the English message", () => {

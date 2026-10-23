@@ -9,6 +9,7 @@
 
 pub mod errors;
 pub mod hackmd;
+pub mod images;
 pub mod logging;
 pub mod settings;
 pub mod store;
@@ -21,7 +22,7 @@ use serde::Serialize;
 use tauri::{Manager, State};
 use tokio::sync::Mutex;
 
-use errors::CommandError;
+use errors::{CommandError, ErrorKind};
 use settings::TokenSource;
 use store::{NoteMeta, Store};
 use sync::{RemoteEntry, SyncState};
@@ -195,6 +196,46 @@ async fn import_note(
         .map_err(|e| report("import_note", e))
 }
 
+/// 貼り付けた画像を置く. 中身は, 呼び出しの本体 (バイト列) で受け取る.
+///
+/// 置いたファイルの名前を返す (ノートには `images/<名前>` と書く).
+#[tauri::command]
+fn save_image(
+    state: State<'_, AppState>,
+    request: tauri::ipc::Request<'_>,
+) -> Result<String, CommandError> {
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
+        return Err(report(
+            "save_image",
+            CommandError::new(ErrorKind::InvalidImage, "the image must be sent as bytes"),
+        ));
+    };
+    let name = images::save(&images::images_dir(&state.data_dir), bytes)
+        .map_err(|e| report("save_image", e))?;
+    log::info!("Saved the image {}", name);
+    Ok(name)
+}
+
+/// 落とした画像のファイルを, 写して置く. 置いたファイルの名前を返す.
+#[tauri::command]
+fn import_image(state: State<'_, AppState>, path: String) -> Result<String, CommandError> {
+    let name = images::import(
+        &images::images_dir(&state.data_dir),
+        std::path::Path::new(&path),
+    )
+    .map_err(|e| report("import_image", e))?;
+    log::info!("Imported the image {}", name);
+    Ok(name)
+}
+
+/// 画像を置くディレクトリを返す (表示で, 画像を読むのに使う).
+#[tauri::command]
+fn images_dir(state: State<'_, AppState>) -> String {
+    images::images_dir(&state.data_dir)
+        .to_string_lossy()
+        .into_owned()
+}
+
 /// 画面に返す, 設定 (トークンそのものは返さない).
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -295,6 +336,9 @@ pub fn run() {
             check_token,
             read_log,
             clear_log,
+            save_image,
+            import_image,
+            images_dir,
             logging::log_frontend_message,
         ])
         .run(tauri::generate_context!())

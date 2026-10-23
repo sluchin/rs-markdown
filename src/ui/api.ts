@@ -162,3 +162,26 @@ export const clearLog = () => invoke<void>("clear_log");
  */
 export const sendLog = (level: LogLevel, message: string) =>
   invoke<void>("log_frontend_message", { level, message });
+
+/**
+ * 貼り付けた画像を, アプリのデータに置く.
+ *
+ * @param bytes 画像の中身
+ * @returns 置いたファイルの名前 (ノートには `images/<名前>` と書く)
+ */
+export const saveImage = (bytes: Uint8Array) => invoke<string>("save_image", bytes);
+
+/**
+ * 落とした画像のファイルを, アプリのデータに写して置く.
+ *
+ * @param path ファイルのパス
+ * @returns 置いたファイルの名前
+ */
+export const importImage = (path: string) => invoke<string>("import_image", { path });
+
+/**
+ * 画像を置くディレクトリを返す.
+ *
+ * @returns ディレクトリのパス
+ */
+export const imagesDir = () => invoke<string>("images_dir");

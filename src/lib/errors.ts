@@ -22,6 +22,7 @@ const MESSAGES: Record<string, string> = {
   conflict: "このノートと HackMD の両方が変わっています。",
   notLinked: "このノートは HackMD とつないでいません。",
   io: "ノートを読み書きできませんでした。",
+  invalidImage: "貼り付けられる画像は、PNG、JPEG、GIF、WebP (20 MB まで) です。",
 };
 
 /**

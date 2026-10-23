@@ -191,6 +191,18 @@ input {
   padding-top: 4px;
 }
 
+/* 書式のツールバー */
+.toolbar.format {
+  gap: 2px;
+  padding: 4px 8px;
+}
+
+.toolbar.format button {
+  min-width: 2em;
+  padding: 2px 6px;
+  font-family: ui-monospace, "Noto Sans Mono CJK JP", monospace;
+}
+
 .status {
   margin: 0;
   padding: 4px 12px;
@@ -351,6 +363,88 @@ input {
   margin: 0 0.4em 0 -1.4em;
 }
 
+/* HackMD の書き方 */
+.markdown-body mark {
+  background: #fff3a3;
+  color: inherit;
+}
+
+.markdown-body .alert {
+  margin: 1em 0;
+  padding: 0.6em 1em;
+  border: 1px solid;
+  border-radius: 4px;
+}
+
+.markdown-body .alert > :first-child {
+  margin-top: 0;
+}
+
+.markdown-body .alert > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown-body .alert-info {
+  border-color: #9fcdea;
+  background: #e8f4fb;
+}
+
+.markdown-body .alert-success {
+  border-color: #a8d8a8;
+  background: #ebf7eb;
+}
+
+.markdown-body .alert-warning {
+  border-color: #ead38a;
+  background: #fcf6e1;
+}
+
+.markdown-body .alert-danger {
+  border-color: #eab0ad;
+  background: #fbeceb;
+}
+
+.markdown-body details.spoiler {
+  margin: 1em 0;
+  padding: 0.4em 1em;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.markdown-body details.spoiler > summary {
+  cursor: pointer;
+}
+
+.markdown-body .toc {
+  margin: 1em 0;
+  padding: 0.4em 1em;
+  border-left: 3px solid var(--border);
+}
+
+.markdown-body .toc ul {
+  margin: 0;
+  padding-left: 1.2em;
+}
+
+.markdown-body .math-display,
+.markdown-body .mermaid {
+  margin: 1em 0;
+  overflow-x: auto;
+  text-align: center;
+}
+
+.markdown-body .mermaid-error {
+  color: var(--error);
+  text-align: left;
+  white-space: pre-wrap;
+  font-family: ui-monospace, "Noto Sans Mono CJK JP", monospace;
+}
+
+.markdown-body .footnotes {
+  font-size: 0.9em;
+  color: var(--muted);
+}
+
 /* コードの色 (highlight.js) */
 .hljs-keyword,
 .hljs-selector-tag,
@@ -379,6 +473,30 @@ input {
 }
 
 @media (prefers-color-scheme: dark) {
+  .markdown-body mark {
+    background: #5c5420;
+  }
+
+  .markdown-body .alert-info {
+    border-color: #2b5878;
+    background: #142634;
+  }
+
+  .markdown-body .alert-success {
+    border-color: #2f6b34;
+    background: #142a16;
+  }
+
+  .markdown-body .alert-warning {
+    border-color: #77631f;
+    background: #2b2510;
+  }
+
+  .markdown-body .alert-danger {
+    border-color: #7a3632;
+    background: #301614;
+  }
+
   .hljs-keyword,
   .hljs-selector-tag,
   .hljs-built_in {

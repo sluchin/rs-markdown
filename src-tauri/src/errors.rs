@@ -9,6 +9,7 @@ use std::io;
 use serde::Serialize;
 
 use crate::hackmd::ApiError;
+use crate::images::ImageError;
 use crate::sync::SyncError;
 
 /// エラーの種類.
@@ -31,6 +32,8 @@ pub enum ErrorKind {
     NotLinked,
     /// ローカルのノートの読み書きの失敗.
     Io,
+    /// 置けない画像 (形式か大きさ).
+    InvalidImage,
     /// そのほか.
     Other,
 }
@@ -104,6 +107,17 @@ impl From<SyncError> for CommandError {
             SyncError::Io(io) => io.into(),
             SyncError::Conflict => Self::new(ErrorKind::Conflict, e.to_string()),
             SyncError::NotLinked => Self::new(ErrorKind::NotLinked, e.to_string()),
+        }
+    }
+}
+
+impl From<ImageError> for CommandError {
+    fn from(e: ImageError) -> Self {
+        match e {
+            ImageError::Io(io) => io.into(),
+            ImageError::Unsupported | ImageError::TooLarge => {
+                Self::new(ErrorKind::InvalidImage, e.to_string())
+            }
         }
     }
 }

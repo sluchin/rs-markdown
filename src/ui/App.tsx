@@ -4,10 +4,13 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { errorMessage, isCommandError } from "../lib/errors";
+import { FORMAT_BUTTONS } from "../lib/format";
+import { baseName, imageMarkdown } from "../lib/images";
 import { log } from "../lib/log";
 import {
   displayTitle,
@@ -18,9 +21,10 @@ import {
   syncLabel,
 } from "../lib/notes";
 import { createSaver, type Saver } from "../lib/saver";
+import { type Anchor, lineForTop, normalizeAnchors, topForLine } from "../lib/scrollSync";
 import * as api from "./api";
 import { ConflictDialog, type Resolution } from "./ConflictDialog";
-import { Editor } from "./Editor";
+import { Editor, type EditorHandle } from "./Editor";
 import { LogDialog } from "./LogDialog";
 import { Preview } from "./Preview";
 import { RemoteDialog } from "./RemoteDialog";
@@ -47,6 +51,31 @@ const SAVE_DELAY = 800;
 
 /** 狭い画面 (一覧とノートを, 切り替えて出す). CSS の切り替えと, 同じ幅にする. */
 const NARROW = "(max-width: 899px)";
+
+/** 片方を動かしてから, もう片方の動きを無視する時間 (ミリ秒. 合わせた動きで, 戻さないため). */
+const SCROLL_LOCK = 100;
+
+/**
+ * 表示の段落の, 元の行と位置の組を集める. 始めと終わりも加える.
+ *
+ * @param preview 表示 (動かす範囲の要素)
+ * @param lines 本文の行の数
+ * @returns 組 (行も位置も増えていく)
+ */
+function previewAnchors(preview: HTMLElement, lines: number): Anchor[] {
+  const base = preview.getBoundingClientRect().top - preview.scrollTop;
+  const anchors = [...preview.querySelectorAll<HTMLElement>("[data-source-line]")].map(
+    (element) => ({
+      line: Number(element.dataset.sourceLine),
+      top: element.getBoundingClientRect().top - base,
+    }),
+  );
+  return normalizeAnchors([
+    { line: 1, top: 0 },
+    ...anchors,
+    { line: lines + 1, top: preview.scrollHeight - preview.clientHeight },
+  ]);
+}
 
 /**
  * 一覧を, 変えたノートで置き換えて, 新しく変えた順に並べる.
@@ -82,7 +111,13 @@ export default function App() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   // 一覧の日時の「今日」を決める (開いたときの日時)
   const [now] = useState(() => Date.now());
+  const [imagesDir, setImagesDir] = useState<string>();
   const saver = useRef<Saver>(undefined);
+  const editor = useRef<EditorHandle>(null);
+  const preview = useRef<HTMLDivElement>(null);
+  // 本文の行の数と, 最後に動かした側 (合わせた動きで, 戻さないため)
+  const lineCount = useRef(1);
+  const scrollLock = useRef<{ side: "editor" | "preview"; until: number }>(undefined);
 
   const meta = notes.find((note) => note.id === current?.id);
 
@@ -93,6 +128,7 @@ export default function App() {
 
   useEffect(() => {
     api.listNotes().then(setNotes).catch(fail);
+    api.imagesDir().then(setImagesDir).catch(fail);
   }, [fail]);
 
   // 閉じるときと, 裏に回るとき (Android) に, 待っている内容を保存する
@@ -190,6 +226,97 @@ export default function App() {
     setContent(text);
     saver.current?.change(text);
   }, []);
+
+  const onPasteImage = useCallback(
+    async (file: File) => {
+      try {
+        const name = await api.saveImage(new Uint8Array(await file.arrayBuffer()));
+        return imageMarkdown(name, baseName(file.name));
+      } catch (e) {
+        fail(e);
+        return undefined;
+      }
+    },
+    [fail],
+  );
+
+  /**
+   * 片方を動かしたときに, もう片方を合わせる (分割のときだけ).
+   *
+   * @param side 動かした側
+   * @param follow もう片方を動かす関数
+   */
+  const syncScroll = useCallback((side: "editor" | "preview", follow: () => void) => {
+    const lock = scrollLock.current;
+    if (lock && lock.side !== side && Date.now() < lock.until) {
+      // 合わせた動き
+      return;
+    }
+    scrollLock.current = { side, until: Date.now() + SCROLL_LOCK };
+    follow();
+  }, []);
+
+  const onEditorScroll = useCallback(
+    (line: number, lines: number) => {
+      lineCount.current = lines;
+      const target = preview.current;
+      if (target) {
+        syncScroll("editor", () => {
+          target.scrollTop = topForLine(previewAnchors(target, lines), line);
+        });
+      }
+    },
+    [syncScroll],
+  );
+
+  const onPreviewScroll = useCallback(() => {
+    const target = preview.current;
+    if (target) {
+      syncScroll("preview", () => {
+        const anchors = previewAnchors(target, lineCount.current);
+        editor.current?.scrollToLine(lineForTop(anchors, target.scrollTop));
+      });
+    }
+  }, [syncScroll]);
+
+  // 落とした画像のファイルを置いて, 落とした場所に入れる (編集しているときだけ)
+  const canDrop = Boolean(current) && mode !== "view";
+  useEffect(() => {
+    if (!canDrop) {
+      return;
+    }
+    const unlisten = getCurrentWebview()
+      .onDragDropEvent((event) => {
+        if (event.payload.type !== "drop") {
+          return;
+        }
+        const { paths, position } = event.payload;
+        const at = {
+          x: position.x / window.devicePixelRatio,
+          y: position.y / window.devicePixelRatio,
+        };
+        void Promise.all(
+          paths.map((path) =>
+            api.importImage(path).then(
+              (name) => imageMarkdown(name, baseName(path)),
+              (e: unknown) => {
+                fail(e);
+                return undefined;
+              },
+            ),
+          ),
+        ).then((texts) => {
+          const text = texts.filter((t) => t !== undefined).join("\n");
+          if (text) {
+            editor.current?.insert(text, at);
+          }
+        });
+      })
+      .catch(() => undefined);
+    return () => {
+      void unlisten.then((stop) => stop?.());
+    };
+  }, [canDrop, fail]);
 
   /**
    * 同期の操作をする. 待っている内容を保存してから行う. 衝突したら, 選ぶ画面を出す.
@@ -386,6 +513,22 @@ export default function App() {
                 <button onClick={() => setConfirmDelete(true)}>消す</button>
               )}
             </div>
+            {mode !== "view" && (
+              <div className="toolbar format" role="toolbar" aria-label="書式">
+                {FORMAT_BUTTONS.map(({ command, label, title, key }) => (
+                  <button
+                    key={command}
+                    title={key ? `${title} (${key.replace("Mod", "Ctrl")})` : title}
+                    aria-label={title}
+                    // エディタの選んでいる範囲を, 押したときに外さない
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => editor.current?.format(command)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
             {(syncState || message) && (
               <p className="status" role="status">
                 {syncState && <span>{syncLabel(syncState)}</span>}
@@ -398,9 +541,19 @@ export default function App() {
                   key={`${current.id}:${current.revision}`}
                   initial={current.initial}
                   onChange={onChange}
+                  onPasteImage={onPasteImage}
+                  onScrollLine={mode === "split" ? onEditorScroll : () => undefined}
+                  handle={editor}
                 />
               )}
-              {mode !== "edit" && <Preview content={content} />}
+              {mode !== "edit" && (
+                <Preview
+                  content={content}
+                  imagesDir={imagesDir}
+                  onScroll={mode === "split" ? onPreviewScroll : () => undefined}
+                  scroller={preview}
+                />
+              )}
             </div>
           </>
         ) : (

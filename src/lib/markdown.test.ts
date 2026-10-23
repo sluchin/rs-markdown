@@ -5,7 +5,23 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { highlight, renderMarkdown, sanitize, stripFrontMatter } from "./markdown";
+import MarkdownIt from "markdown-it";
+import {
+  frontMatterLines,
+  highlight,
+  renderMarkdown,
+  sanitize,
+  sourceLines,
+  stripFrontMatter,
+} from "./markdown";
+
+/**
+ * HTML を, 文書にする.
+ *
+ * @param html HTML
+ * @returns 文書
+ */
+const parse = (html: string) => new DOMParser().parseFromString(html, "text/html");
 
 describe("stripFrontMatter", () => {
   it("removes the YAML at the top", () => {
@@ -15,6 +31,14 @@ describe("stripFrontMatter", () => {
 
   it("keeps a rule that is not at the top", () => {
     expect(stripFrontMatter("# H\n---\nx\n---\n")).toBe("# H\n---\nx\n---\n");
+  });
+});
+
+describe("frontMatterLines", () => {
+  it("counts the lines of the YAML at the top", () => {
+    expect(frontMatterLines("---\ntitle: x\n---\nbody")).toBe(3);
+    expect(frontMatterLines("---\ntitle: x\n---")).toBe(3);
+    expect(frontMatterLines("body")).toBe(0);
   });
 });
 
@@ -41,8 +65,8 @@ describe("sanitize", () => {
 describe("renderMarkdown", () => {
   it("renders headings, tables and line breaks", () => {
     const html = renderMarkdown("# Title\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\nline1\nline2");
-    expect(html).toContain("<h1>Title</h1>");
-    expect(html).toContain("<table>");
+    expect(parse(html).querySelector("h1")?.textContent).toBe("Title");
+    expect(html).toContain('<table data-source-line="3">');
     expect(html).toContain("line1<br>");
   });
 
@@ -60,7 +84,9 @@ describe("renderMarkdown", () => {
 
   it("colors fenced code", () => {
     expect(renderMarkdown("```ts\nconst a = 1;\n```")).toContain("hljs-keyword");
-    expect(renderMarkdown("```\nplain\n```")).toContain("<code>plain\n</code>");
+    expect(renderMarkdown("```\nplain\n```")).toContain(
+      '<code data-source-line="1">plain\n</code>',
+    );
   });
 
   it("renders task lists as disabled checkboxes", () => {
@@ -81,5 +107,70 @@ describe("renderMarkdown", () => {
     expect(renderMarkdown("- **[ ] bold**")).not.toContain("checkbox");
     // 印のない項目
     expect(renderMarkdown("- [y] other")).not.toContain("checkbox");
+  });
+});
+
+describe("renderMarkdown (HackMD)", () => {
+  it("renders marks, inserts, subscripts, superscripts, emoji and footnotes", () => {
+    const html = renderMarkdown("==mark== ++ins++ H~2~O x^2^ :smile: note[^1]\n\n[^1]: foot");
+    expect(html).toContain("<mark>mark</mark>");
+    expect(html).toContain("<ins>ins</ins>");
+    expect(html).toContain("<sub>2</sub>");
+    expect(html).toContain("<sup>2</sup>");
+    expect(html).toContain("😄");
+    expect(parse(html).querySelector(".footnotes")?.textContent).toContain("foot");
+  });
+
+  it("renders the alert blocks and the spoiler", () => {
+    const doc = parse(
+      renderMarkdown(
+        ":::info\nhi\n:::\n\n:::danger\nno\n:::\n\n:::spoiler Answer\nsecret\n:::\n\n:::spoiler\nx\n:::",
+      ),
+    );
+    expect(doc.querySelector(".alert.alert-info")?.textContent).toContain("hi");
+    expect(doc.querySelector(".alert.alert-danger")?.textContent).toContain("no");
+    const summaries = [...doc.querySelectorAll("details.spoiler > summary")];
+    expect(summaries.map((s) => s.textContent)).toEqual(["Answer", "Spoiler"]);
+    expect(doc.querySelector("details")?.textContent).toContain("secret");
+  });
+
+  it("leaves the math and the Mermaid source for the view to draw", () => {
+    const doc = parse(renderMarkdown("$a<b$\n\n$$\nx^2\n$$\n\n```mermaid\ngraph TD; A-->B\n```"));
+    expect(doc.querySelector("span.math")?.textContent).toBe("a<b");
+    expect(doc.querySelector("div.math-display")?.textContent).toBe("x^2");
+    expect(doc.querySelector("div.mermaid")?.textContent).toBe("graph TD; A-->B\n");
+  });
+
+  it("adds ids to the headings and replaces [TOC] with the table of contents", () => {
+    const doc = parse(renderMarkdown("[TOC]\n\n# One\n\n## Two"));
+    expect(doc.querySelector("h1")?.id).toBe("One");
+    expect([...doc.querySelectorAll(".toc a")].map((a) => a.getAttribute("href"))).toEqual([
+      "#One",
+      "#Two",
+    ]);
+  });
+
+  it("marks the blocks with their source lines, counting the front matter", () => {
+    const doc = parse(renderMarkdown("---\ntitle: x\n---\n# A\n\ntext\n\n```\ncode\n```\n\n---"));
+    const lines = [...doc.querySelectorAll("[data-source-line]")].map((element) => [
+      element.tagName,
+      element.getAttribute("data-source-line"),
+    ]);
+    expect(lines).toEqual([
+      ["H1", "4"],
+      ["P", "6"],
+      ["CODE", "8"],
+      ["HR", "12"],
+    ]);
+  });
+});
+
+describe("sourceLines", () => {
+  it("counts from the first line without the offset", () => {
+    const md = new MarkdownIt();
+    md.core.ruler.push("source_lines", sourceLines);
+    expect(md.render("a\n\nb")).toBe(
+      '<p data-source-line="1">a</p>\n<p data-source-line="3">b</p>\n',
+    );
   });
 });
