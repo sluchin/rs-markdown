@@ -48,6 +48,19 @@ docker compose run --rm build-android   # src-tauri/gen/android/app/build/output
 
 画面の確認は、ホストで `npm run tauri:dev` を実行します。
 
+## リリース
+
+`v` から始まるタグ (例: `v0.1.0`) を push すると、GitHub Actions (`.github/workflows/release.yml`) が PC (Linux、Windows、macOS) のインストーラをビルドして、GitHub Releases のドラフトに載せます。Actions の「Release」から手動で実行すると、タグを打たずにビルドでき、成果物は実行結果の Artifacts からダウンロードできます。
+
+Android の APK (arm64) は、リポジトリの Secrets に署名の鍵を登録したときだけビルドします。
+
+| Secret                      | 内容                                     |
+| --------------------------- | ---------------------------------------- |
+| `ANDROID_KEYSTORE_BASE64`   | キーストア (`.jks`) を base64 にしたもの |
+| `ANDROID_KEYSTORE_PASSWORD` | キーストアのパスワード                   |
+| `ANDROID_KEY_ALIAS`         | 鍵の別名                                 |
+| `ANDROID_KEY_PASSWORD`      | 鍵のパスワード                           |
+
 ## ライセンス
 
 GPL-3.0-or-later
