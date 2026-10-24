@@ -57,6 +57,35 @@ const SAVE_DELAY = 800;
 /** 狭い画面 (一覧とノートを, 切り替えて出す). CSS の切り替えと, 同じ幅にする. */
 const NARROW = "(max-width: 899px)";
 
+/** 広い画面で, 一覧を隠しているかを覚えておく名前 (localStorage). */
+const SIDEBAR_HIDDEN_KEY = "rs-mdnote.sidebarHidden";
+
+/**
+ * 一覧を隠しているかを読む (読めなければ, 隠さない).
+ *
+ * @returns 隠しているか
+ */
+function loadSidebarHidden(): boolean {
+  try {
+    return localStorage.getItem(SIDEBAR_HIDDEN_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 一覧を隠しているかを覚える (覚えられなくても, 画面はそのまま動く).
+ *
+ * @param hidden 隠しているか
+ */
+function saveSidebarHidden(hidden: boolean): void {
+  try {
+    localStorage.setItem(SIDEBAR_HIDDEN_KEY, hidden ? "1" : "0");
+  } catch {
+    // 覚えられなくても, 今の画面では隠したままにする
+  }
+}
+
 /** 片方を動かしてから, もう片方の動きを無視する時間 (ミリ秒. 合わせた動きで, 戻さないため). */
 const SCROLL_LOCK = 100;
 
@@ -109,6 +138,8 @@ export default function App() {
     window.matchMedia(NARROW).matches ? "edit" : "split",
   );
   const [showList, setShowList] = useState(true);
+  // 広い画面で, 一覧を隠して, ノートを広く使う (狭い画面は, 一覧とノートを切り替えるので, 使わない)
+  const [sidebarHidden, setSidebarHidden] = useState(loadSidebarHidden);
   const [dialog, setDialog] = useState<Dialog>();
   const [message, setMessage] = useState<string>();
   const [busy, setBusy] = useState(false);
@@ -530,7 +561,11 @@ export default function App() {
   const file = meta?.file;
 
   return (
-    <div className={`app ${showList ? "show-list" : "show-note"}`}>
+    <div
+      className={`app ${showList ? "show-list" : "show-note"}${
+        sidebarHidden && current ? " hide-sidebar" : ""
+      }`}
+    >
       <aside className="sidebar">
         <div className="toolbar">
           <button onClick={() => void create()}>新規</button>
@@ -589,6 +624,18 @@ export default function App() {
         {current && meta ? (
           <>
             <div className="toolbar">
+              <button
+                className="sidebar-toggle"
+                onClick={() => {
+                  saveSidebarHidden(!sidebarHidden);
+                  setSidebarHidden(!sidebarHidden);
+                }}
+                aria-pressed={sidebarHidden}
+                aria-label={sidebarHidden ? "一覧を表示する" : "一覧を隠す"}
+                title={sidebarHidden ? "一覧を表示する" : "一覧を隠す"}
+              >
+                ☰
+              </button>
               <button className="back" onClick={back} aria-label="一覧に戻る">
                 ←
               </button>

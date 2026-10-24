@@ -173,6 +173,15 @@ input {
   display: none;
 }
 
+/* 広い画面: 一覧を隠して, ノートを広く使う */
+.app.hide-sidebar {
+  grid-template-columns: 1fr;
+}
+
+.app.hide-sidebar .sidebar {
+  display: none;
+}
+
 .note-title {
   flex: 1;
   min-width: 0;
@@ -295,6 +304,15 @@ input {
 
   .main .back {
     display: inline-block;
+  }
+
+  /* 狭い画面は, 一覧とノートを切り替えるので, 隠すボタンは使わない */
+  .main .sidebar-toggle {
+    display: none;
+  }
+
+  .app.show-list.hide-sidebar .sidebar {
+    display: flex;
   }
 
   .panes.mode-split {
