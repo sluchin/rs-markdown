@@ -1,4 +1,4 @@
-package jp.sluchin.rsmdnote
+package jp.rsmdnote.app
 
 import android.os.Bundle
 import androidx.activity.enableEdgeToEdge

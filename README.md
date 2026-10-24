@@ -66,7 +66,7 @@ PC で開発するときは、保存したトークンがなければ、環境�
 | 設定 (トークン) | アプリの設定の `settings.json`                        |
 | ログ            | アプリのデータの `logs/app.log`                       |
 
-Linux では、アプリのデータと設定は `~/.local/share/jp.sluchin.rsmdnote/` と `~/.config/jp.sluchin.rsmdnote/` です。
+Linux では、アプリのデータと設定は `~/.local/share/jp.rsmdnote.app/` と `~/.config/jp.rsmdnote.app/` です。
 
 ## 開発
 
