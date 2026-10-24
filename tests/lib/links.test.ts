@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { linkAction } from "./links";
+import { linkAction } from "@/lib/links";
 
 describe("linkAction", () => {
   it("opens web and mail links in the browser", () => {

@@ -6,7 +6,7 @@
 
 import MarkdownIt from "markdown-it";
 import { describe, expect, it } from "vitest";
-import { headingsRule, slugify, tocHtml } from "./headings";
+import { headingsRule, slugify, tocHtml } from "@/lib/headings";
 
 const md = new MarkdownIt();
 md.core.ruler.push("headings", headingsRule);

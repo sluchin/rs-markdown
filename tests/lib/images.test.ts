@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { baseName, imageMarkdown, isImageType, localImageName } from "./images";
+import { baseName, imageMarkdown, isImageType, localImageName } from "@/lib/images";
 
 const NAME = "0f8fad5b-d9cb-469f-a165-70867728950e.png";
 

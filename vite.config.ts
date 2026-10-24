@@ -7,18 +7,21 @@ const host = process.env.TAURI_DEV_HOST;
 // https://vite.dev/config/
 export default defineConfig(() => ({
   plugins: [react()],
+  // src を `@/` で参照する (テストから `@/lib/...` のように使う)
+  resolve: {
+    alias: { "@": "/src" },
+  },
 
   // エディタ (CodeMirror) とコードの色付け (highlight.js) で, 1 つのファイルが大きくなる (アプリの中から読むので, 分けない)
   build: { chunkSizeWarningLimit: 2000 },
 
-  // 単体テスト: ブラウザの DOM は, jsdom で代わりにする. カバレッジは src/lib の行と分岐が 100%
+  // 単体テスト (tests/ に, src/ と同じ構成で置く): ブラウザの DOM は, jsdom で代わりにする. カバレッジは src/lib の行と分岐が 100%
   test: {
     environment: "jsdom",
-    include: ["src/**/*.test.ts"],
+    include: ["tests/**/*.test.ts"],
     coverage: {
       provider: "v8",
       include: ["src/lib/**/*.ts"],
-      exclude: ["src/lib/**/*.test.ts"],
       thresholds: { lines: 100, branches: 100, functions: 100, statements: 100 },
     },
   },

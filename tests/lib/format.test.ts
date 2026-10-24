@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { type Edit, FORMAT_BUTTONS, type FormatCommand, formatEdit } from "./format";
+import { type Edit, FORMAT_BUTTONS, type FormatCommand, formatEdit } from "@/lib/format";
 
 /**
  * 書き換えを本文に当てて, 選ぶ範囲を `«` と `»` で示した本文を返す.

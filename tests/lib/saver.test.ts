@@ -5,7 +5,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createSaver } from "./saver";
+import { createSaver } from "@/lib/saver";
 
 describe("createSaver", () => {
   beforeEach(() => {

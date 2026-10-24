@@ -9,7 +9,7 @@ Markdown のエディタとビューア (rs-mdnote。前の名前は rs-markdown
 ```
 
 - アプリの識別子は `jp.rsmdnote.app` (`tauri.conf.json` の `identifier`、Android の `applicationId`)。変えると、ノートと設定の保存先が変わる。
-- `src/lib/`: DOM と Tauri に依存しない処理。行と分岐のカバレッジ 100% (Vitest + jsdom)。`markdown.ts` (変換と安全化)、`math.ts` (数式の解析)、`headings.ts` (見出しの `id` と目次)、`format.ts` (書式のツールバーとショートカットの書き換え)、`scrollSync.ts` (編集と表示の位置の対応)、`images.ts` (ノートの中の画像の場所)、`tasks.ts` (表示のチェックボックスで, 作業の一覧の印を切り替える)、`files.ts` (取り込めるファイルと, 落としたファイルの振り分け)、`notes.ts` (ノートの一覧と, 同期の状態の説明)。
+- `src/lib/`: DOM と Tauri に依存しない処理。行と分岐のカバレッジ 100% (Vitest + jsdom)。テストは `tests/lib/` に置く (`src/lib/markdown.ts` のテストは `tests/lib/markdown.test.ts`。`src/` は `@/` で参照する)。`markdown.ts` (変換と安全化)、`math.ts` (数式の解析)、`headings.ts` (見出しの `id` と目次)、`format.ts` (書式のツールバーとショートカットの書き換え)、`scrollSync.ts` (編集と表示の位置の対応)、`images.ts` (ノートの中の画像の場所)、`tasks.ts` (表示のチェックボックスで, 作業の一覧の印を切り替える)、`files.ts` (取り込めるファイルと, 落としたファイルの振り分け)、`notes.ts` (ノートの一覧と, 同期の状態の説明)。
 - `src/ui/`: React の画面。薄く保つ。テストは置かない。Rust の呼び出しは `ui/api.ts` にまとめる。
 - `src-tauri/src/`: `store.rs` (ノートの保存)、`hackmd.rs` (API)、`sync.rs` (同期)、`settings.rs` (トークン)、`errors.rs` (画面に返すエラー)、`logging.rs` (ログ。doc-translator-core と同じ)、`images.rs` (貼り付けた画像の保存)、`files.rs` (外の Markdown のファイルの読み書き)、`filesync.rs` (取り込んだファイルとの同期。`sync.rs` と同じ考え方)、`commands.rs` (画面から呼ぶコマンドの本体。`AppState` を受け取る普通の関数)、`lib.rs` (`State` を `commands` に渡すだけの Tauri のコマンドと起動)。行のカバレッジ 100% (cargo tarpaulin)。Tauri に依存して単体テストできない薄い部分 (`lib.rs` のコマンドと起動、`main`) だけを `#[cfg(not(tarpaulin_include))]` で外す。
 

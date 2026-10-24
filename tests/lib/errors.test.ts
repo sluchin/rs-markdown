@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { errorMessage, isCommandError } from "./errors";
+import { errorMessage, isCommandError } from "@/lib/errors";
 
 describe("isCommandError", () => {
   it("accepts the command error", () => {

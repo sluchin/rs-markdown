@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { interpolate, lineForTop, normalizeAnchors, topForLine } from "./scrollSync";
+import { interpolate, lineForTop, normalizeAnchors, topForLine } from "@/lib/scrollSync";
 
 const ANCHORS = [
   { line: 1, top: 0 },

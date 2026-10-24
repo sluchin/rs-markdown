@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { isFilePath, isMarkdownPath, splitDropped } from "./files";
+import { isFilePath, isMarkdownPath, splitDropped } from "@/lib/files";
 
 describe("isMarkdownPath", () => {
   it("accepts the Markdown and text files by the extension", () => {

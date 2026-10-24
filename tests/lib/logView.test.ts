@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { filterLog, localTime, parseLog } from "./logView";
+import { filterLog, localTime, parseLog } from "@/lib/logView";
 
 describe("parseLog", () => {
   it("1 件ずつに分けて, 続きの行は前の件に付ける", () => {

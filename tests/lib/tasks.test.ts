@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { applyChange, toggleTask } from "./tasks";
+import { applyChange, toggleTask } from "@/lib/tasks";
 
 /**
  * 行の印を切り替えた本文を返す.

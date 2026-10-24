@@ -13,7 +13,7 @@ import {
   formatDate,
   syncLabel,
   type SyncState,
-} from "./notes";
+} from "@/lib/notes";
 
 describe("displayTitle", () => {
   it("names an empty title", () => {

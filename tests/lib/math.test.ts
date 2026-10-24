@@ -6,7 +6,7 @@
 
 import MarkdownIt from "markdown-it";
 import { describe, expect, it } from "vitest";
-import { escapeHtml, mathPlugin } from "./math";
+import { escapeHtml, mathPlugin } from "@/lib/math";
 
 const md = new MarkdownIt().use(mathPlugin);
 

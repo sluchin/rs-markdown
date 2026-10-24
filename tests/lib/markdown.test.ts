@@ -13,7 +13,7 @@ import {
   sanitize,
   sourceLines,
   stripFrontMatter,
-} from "./markdown";
+} from "@/lib/markdown";
 
 /**
  * HTML を, 文書にする.

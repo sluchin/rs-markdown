@@ -5,7 +5,7 @@
  */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { captureErrors, formatLog, isLogEnabled, log, setupLog } from "./log";
+import { captureErrors, formatLog, isLogEnabled, log, setupLog } from "@/lib/log";
 
 describe("log", () => {
   afterEach(() => {
