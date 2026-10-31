@@ -131,7 +131,7 @@ pub fn write_markdown(path: &Path, content: &str) -> Result<(), FileError> {
         text.insert(0, BOM);
     }
     let mut tmp = target.as_os_str().to_os_string();
-    tmp.push(".rs-mdnote.tmp");
+    tmp.push(".rs-markdown.tmp");
     fs::write(&tmp, text.as_bytes())?;
     let renamed = fs::set_permissions(&tmp, fs::metadata(&target)?.permissions())
         .and_then(|()| fs::rename(&tmp, &target));

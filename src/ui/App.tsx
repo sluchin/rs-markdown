@@ -58,7 +58,7 @@ const SAVE_DELAY = 800;
 const NARROW = "(max-width: 899px)";
 
 /** 広い画面で, 一覧を隠しているかを覚えておく名前 (localStorage). */
-const SIDEBAR_HIDDEN_KEY = "rs-mdnote.sidebarHidden";
+const SIDEBAR_HIDDEN_KEY = "rs-markdown.sidebarHidden";
 
 /**
  * 一覧を隠しているかを読む (読めなければ, 隠さない).

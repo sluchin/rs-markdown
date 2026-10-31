@@ -1,6 +1,6 @@
 # プロジェクト設定
 
-Markdown のエディタとビューア (rs-mdnote。前の名前は rs-markdown)。ノートはローカル (アプリのデータの `notes/`) に保存して、HackMD のノートと同期する。PC (Linux, Windows, macOS) と Android。Tauri 2 (Rust) + React (TypeScript)。
+Markdown のエディタとビューア (rs-markdown。前の名前は rs-mdnote)。ノートはローカル (アプリのデータの `notes/`) に保存して、HackMD のノートと同期する。PC (Linux, Windows, macOS) と Android。Tauri 2 (Rust) + React (TypeScript)。
 
 ```
 編集 (ui/Editor.tsx: CodeMirror 6) ─> 自動保存 (lib/saver.ts) ─> Rust (store.rs: notes/<ID>.md と index.json)
@@ -66,3 +66,7 @@ Markdown のエディタとビューア (rs-mdnote。前の名前は rs-markdown
 - 件名のあとに空行を 1 行入れて、本文を書く。本文はハイフンで始まる箇条書き。
 - コミットメッセージに `Co-Authored-By` または Claude 帰属行を含めない。
 - rebase のあとの push は `git push --force-with-lease --force-if-includes origin <ブランチ名>`。
+
+## 開発ルール
+
+- Markdown (`*.md`) の日本語の文章は、句読点に「、」「。」を使う (「,」「.」は使わない)。インラインコード・コードブロック・URL・ファイル名・数値 (`1.2.0`、`1,000`) は対象外。見出しや番号付きリストの「1.」の形は変えない。`docs/` の生成物と、この `CLAUDE.md` は対象外。

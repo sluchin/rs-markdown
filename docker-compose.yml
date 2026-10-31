@@ -5,7 +5,7 @@ x-common: &common
     context: docker
     dockerfile: Dockerfile
     target: dev
-  image: rs-mdnote-dev:latest
+  image: rs-markdown-dev:latest
   volumes:
     - .:/workspace
     - ${CARGO_HOME_DIR:-cargo-home}:/cargo-home
@@ -56,7 +56,7 @@ services:
     <<: *common
     command: sh -c "npm run typecheck && npm run lint && cd src-tauri && cargo clippy --all-targets -- -D warnings"
 
-  # PC (Linux) のデバッグ版をビルドする (src-tauri/target/debug/rs-mdnote)
+  # PC (Linux) のデバッグ版をビルドする (src-tauri/target/debug/rs-markdown)
   build-desktop:
     <<: *common
     command: npx tauri build --debug --no-bundle

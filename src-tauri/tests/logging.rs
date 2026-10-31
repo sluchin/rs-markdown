@@ -10,7 +10,7 @@ use std::path::Path;
 
 use tempfile::tempdir;
 
-use rs_mdnote_lib::logging::{
+use rs_markdown_lib::logging::{
     LogLevel, RotatingFile, Tee, backup_path, clear_logs, default_level, log_frontend_message,
     log_path, panic_text, read_tail,
 };

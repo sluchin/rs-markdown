@@ -9,9 +9,9 @@ use std::path::PathBuf;
 
 use tempfile::{TempDir, tempdir};
 
-use rs_mdnote_lib::filesync::{self, FileSyncError, keep_both, pull, push, status};
-use rs_mdnote_lib::store::{Store, content_hash};
-use rs_mdnote_lib::sync::SyncState;
+use rs_markdown_lib::filesync::{self, FileSyncError, keep_both, pull, push, status};
+use rs_markdown_lib::store::{Store, content_hash};
+use rs_markdown_lib::sync::SyncState;
 
 /// テストの準備: ノートの保存先と, 取り込むファイル (`a.md`).
 fn setup(content: &str) -> (TempDir, Store, PathBuf) {

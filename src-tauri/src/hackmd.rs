@@ -16,7 +16,7 @@ use serde_json::json;
 /// HackMD の API の URL.
 pub const API_BASE: &str = "https://api.hackmd.io/v1";
 /// 名乗る User-Agent.
-pub const USER_AGENT: &str = "rs-mdnote/0.1 (+https://github.com/sluchin/rs-mdnote)";
+pub const USER_AGENT: &str = "rs-markdown/0.1 (+https://github.com/sluchin/rs-markdown)";
 /// 1 回の呼び出しの時間の上限.
 const TIMEOUT: Duration = Duration::from_secs(30);
 

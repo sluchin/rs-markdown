@@ -3,5 +3,5 @@
 
 #[cfg(not(tarpaulin_include))]
 fn main() {
-    rs_mdnote_lib::run()
+    rs_markdown_lib::run()
 }

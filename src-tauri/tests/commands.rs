@@ -13,12 +13,12 @@ use tauri::ipc::InvokeBody;
 use tempfile::{TempDir, tempdir};
 use tokio::sync::Mutex;
 
-use rs_mdnote_lib::commands::{self, AppState, SettingsView};
-use rs_mdnote_lib::errors::ErrorKind;
-use rs_mdnote_lib::settings::TokenSource;
-use rs_mdnote_lib::store::Store;
-use rs_mdnote_lib::sync::SyncState;
-use rs_mdnote_lib::{images, logging};
+use rs_markdown_lib::commands::{self, AppState, SettingsView};
+use rs_markdown_lib::errors::ErrorKind;
+use rs_markdown_lib::settings::TokenSource;
+use rs_markdown_lib::store::Store;
+use rs_markdown_lib::sync::SyncState;
+use rs_markdown_lib::{images, logging};
 
 /// PNG の始めのバイト (形式は, 中身で決める).
 const PNG: &[u8] = b"\x89PNG\r\n\x1a\n0000";

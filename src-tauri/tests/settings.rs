@@ -8,7 +8,7 @@ use std::fs;
 
 use tempfile::tempdir;
 
-use rs_mdnote_lib::settings::{
+use rs_markdown_lib::settings::{
     Settings, TokenSource, effective_token, load, save, settings_path, with_token,
 };
 

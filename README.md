@@ -1,4 +1,4 @@
-# rs-mdnote
+# rs-markdown
 
 Markdown のエディタとビューア。ノートは端末の中に保存して、[HackMD](https://hackmd.io/) のノートと同期できます。PC (Linux, Windows, macOS) と Android で動きます (Tauri 2)。
 
@@ -81,7 +81,7 @@ docker compose run --rm test
 docker compose run --rm coverage        # src/lib と Rust が 100% (Rust の結果は src-tauri/tarpaulin-report.html)
 docker compose run --rm format
 docker compose run --rm analyze
-docker compose run --rm build-desktop   # src-tauri/target/debug/rs-mdnote
+docker compose run --rm build-desktop   # src-tauri/target/debug/rs-markdown
 docker compose run --rm build-android   # src-tauri/gen/android/app/build/outputs/apk/universal/debug/
 ```
 
