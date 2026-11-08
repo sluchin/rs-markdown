@@ -12,7 +12,7 @@ import * as api from "./api";
 const SOURCES: Record<api.TokenSource, string> = {
   none: "入れていません。",
   saved: "保存したトークンを使っています。",
-  env: "環境変数 HACKMD_APIKEY のトークンを使っています。",
+  env: "環境変数 HACKMD_APIKEY (実行のとき、またはビルドのとき) のトークンを使っています。",
 };
 
 /** 設定の画面の引数. */

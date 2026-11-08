@@ -1,4 +1,4 @@
-package jp.rsmdnote.app
+package jp.rsmarkdown.app
 
 import android.os.Bundle
 import androidx.activity.enableEdgeToEdge

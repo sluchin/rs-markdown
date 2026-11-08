@@ -17,6 +17,8 @@ x-common: &common
     - HOME=/tmp
     # Android のデバッグ署名の鍵 (debug.keystore) をボリュームに残す
     - ANDROID_USER_HOME=/gradle-home/android
+    # HackMD のトークン (値を書かない. シェルにあれば, ビルドのときに, 実行ファイルに入れる. 配るビルドでは, 設定しない)
+    - HACKMD_APIKEY
 
 services:
   # 開発シェル

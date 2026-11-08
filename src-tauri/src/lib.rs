@@ -252,7 +252,10 @@ fn setup(app: &tauri::App) -> Result<AppState, Box<dyn std::error::Error>> {
         data_dir,
         settings_path: settings::settings_path(&config_dir),
         api_base: hackmd::API_BASE.to_string(),
-        env_token: std::env::var(settings::TOKEN_ENV).ok(),
+        env_token: settings::env_token(
+            std::env::var(settings::TOKEN_ENV).ok().as_deref(),
+            settings::BUILD_TOKEN,
+        ),
     })
 }
 

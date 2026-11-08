@@ -1,6 +1,6 @@
 # プロジェクト設定
 
-Markdown のエディタとビューア (rs-markdown。前の名前は rs-mdnote)。ノートはローカル (アプリのデータの `notes/`) に保存して、HackMD のノートと同期する。PC (Linux, Windows, macOS) と Android。Tauri 2 (Rust) + React (TypeScript)。
+Markdown のエディタとビューア (rs-markdown)。ノートはローカル (アプリのデータの `notes/`) に保存して、HackMD のノートと同期する。PC (Linux, Windows, macOS) と Android。Tauri 2 (Rust) + React (TypeScript)。
 
 ```
 編集 (ui/Editor.tsx: CodeMirror 6) ─> 自動保存 (lib/saver.ts) ─> Rust (store.rs: notes/<ID>.md と index.json)
@@ -8,7 +8,7 @@ Markdown のエディタとビューア (rs-markdown。前の名前は rs-mdnote
 同期 (送る, 取り込む) ─> Rust (sync.rs) ─> HackMD の API (hackmd.rs. https://api.hackmd.io/v1)
 ```
 
-- アプリの識別子は `jp.rsmdnote.app` (`tauri.conf.json` の `identifier`、Android の `applicationId`)。変えると、ノートと設定の保存先が変わる。
+- アプリの識別子は `jp.rsmarkdown.app` (`tauri.conf.json` の `identifier`、Android の `applicationId`)。変えると、ノートと設定の保存先が変わる。
 - `src/lib/`: DOM と Tauri に依存しない処理。行と分岐のカバレッジ 100% (Vitest + jsdom)。テストは `tests/lib/` に置く (`src/lib/markdown.ts` のテストは `tests/lib/markdown.test.ts`。`src/` は `@/` で参照する)。`markdown.ts` (変換と安全化)、`math.ts` (数式の解析)、`headings.ts` (見出しの `id` と目次)、`format.ts` (書式のツールバーとショートカットの書き換え)、`scrollSync.ts` (編集と表示の位置の対応)、`images.ts` (ノートの中の画像の場所)、`tasks.ts` (表示のチェックボックスで, 作業の一覧の印を切り替える)、`files.ts` (取り込めるファイルと, 落としたファイルの振り分け)、`notes.ts` (ノートの一覧と, 同期の状態の説明)。
 - `src/ui/`: React の画面。薄く保つ。テストは置かない。Rust の呼び出しは `ui/api.ts` にまとめる。
 - `src-tauri/src/`: `store.rs` (ノートの保存)、`hackmd.rs` (API)、`sync.rs` (同期)、`settings.rs` (トークン)、`errors.rs` (画面に返すエラー)、`logging.rs` (ログ。doc-translator-core と同じ)、`images.rs` (貼り付けた画像の保存)、`files.rs` (外の Markdown のファイルの読み書き)、`filesync.rs` (取り込んだファイルとの同期。`sync.rs` と同じ考え方)、`commands.rs` (画面から呼ぶコマンドの本体。`AppState` を受け取る普通の関数)、`lib.rs` (`State` を `commands` に渡すだけの Tauri のコマンドと起動)。行のカバレッジ 100% (cargo tarpaulin)。Tauri に依存して単体テストできない薄い部分 (`lib.rs` のコマンドと起動、`main`) だけを `#[cfg(not(tarpaulin_include))]` で外す。
@@ -23,7 +23,7 @@ Markdown のエディタとビューア (rs-markdown。前の名前は rs-mdnote
 
 ## セキュリティの決まり (守ること)
 
-- **HackMD の API のトークンを、ログ、エラー、画面に出さない。** 画面に返すのは、あるかどうかと取り元だけ (`SettingsView`)。保存は設定のディレクトリの `settings.json` (Unix は 600)。保存したトークンがなければ、実行するときの環境変数 `HACKMD_APIKEY` を使う (PC の開発用。ビルドに入れない。`option_env!` を使わない)。
+- **HackMD の API のトークンを、ログ、エラー、画面に出さない。** 画面に返すのは、あるかどうかと取り元だけ (`SettingsView`)。保存は設定のディレクトリの `settings.json` (Unix は 600)。使うトークンは、保存したトークンが空でなければそれ (優先)、空なら実行のときの環境変数 `HACKMD_APIKEY`、それもなければビルドのときの環境変数 `HACKMD_APIKEY` (`option_env!`。`settings::BUILD_TOKEN`)、どれもなければ設定が要る。トークンは実行ファイルに入るので、配るビルドや CI では `HACKMD_APIKEY` を設定しない。`docker-compose.yml` は、この環境変数をコンテナに渡す。
 - 表示する HTML は、必ず `sanitize()` (DOMPurify) を通す (`renderMarkdown`)。`dangerouslySetInnerHTML` に渡すのはその結果だけ。
 - 数式と図は、安全にした後に描く (`Preview.tsx`)。変換では、TeX と Mermaid の文を、文字として要素に入れるだけにする (スタイル属性を許さないため)。KaTeX は `trust: false`、Mermaid は `securityLevel: "strict"` で描く。
 - 表示の中のリンクは、アプリの中で開かない (`lib/links.ts`。`http`、`https`、`mailto` だけをブラウザで開く)。

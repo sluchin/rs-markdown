@@ -9,7 +9,7 @@ use std::fs;
 use tempfile::tempdir;
 
 use rs_markdown_lib::settings::{
-    Settings, TokenSource, effective_token, load, save, settings_path, with_token,
+    Settings, TokenSource, effective_token, env_token, load, save, settings_path, with_token,
 };
 
 #[test]
@@ -70,4 +70,21 @@ fn test_with_token() {
     );
     assert_eq!(with_token(&settings, Some("")).token, None);
     assert_eq!(with_token(&settings, None).token, None);
+}
+
+#[test]
+fn test_env_token_prefers_the_runtime_variable_over_the_build() {
+    assert_eq!(
+        env_token(Some(" run "), Some("build")),
+        Some("run".to_string())
+    );
+    // 実行のときの環境変数が空なら, ビルドのときの
+    assert_eq!(
+        env_token(Some("  "), Some("build")),
+        Some("build".to_string())
+    );
+    assert_eq!(env_token(None, Some(" build ")), Some("build".to_string()));
+    // どちらもなければ, 設定が要る
+    assert_eq!(env_token(None, Some("")), None);
+    assert_eq!(env_token(None, None), None);
 }

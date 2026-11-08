@@ -5,8 +5,9 @@
 //! 設定 (HackMD の API のトークン). アプリの設定のディレクトリの `settings.json` に置く.
 //!
 //! トークンは画面に返さない (あるかどうかだけを返す). ファイルは, 自分だけが読めるようにする (Unix).
-//! 保存したトークンがなければ, 実行するときの環境変数 `HACKMD_APIKEY` を使う (PC で開発するとき.
-//! ビルドには入れない).
+//! 使うトークンは, 保存したトークンが空でなければそれ (環境変数があっても, 保存したトークンが先). 空なら,
+//! 実行するときの環境変数 `HACKMD_APIKEY`, それもなければ, ビルドのときの環境変数 `HACKMD_APIKEY`
+//! ([`BUILD_TOKEN`]). どれもなければ, 設定の画面でトークンを入れる必要がある.
 
 use std::fs;
 use std::io;
@@ -16,6 +17,12 @@ use serde::{Deserialize, Serialize};
 
 /// トークンを読む, 環境変数の名前.
 pub const TOKEN_ENV: &str = "HACKMD_APIKEY";
+
+/// ビルドのときに, 環境変数 [`TOKEN_ENV`] に入っていたトークン (なければ `None`).
+///
+/// トークンは, アプリの実行ファイルに入る (取り出せる) ので, 自分で使うビルドだけで使う (配るビルドや CI では,
+/// 設定しない).
+pub const BUILD_TOKEN: Option<&str> = option_env!("HACKMD_APIKEY");
 
 /// 保存する設定.
 #[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq, Eq)]
@@ -34,7 +41,7 @@ pub enum TokenSource {
     None,
     /// 設定の画面で入れた.
     Saved,
-    /// 環境変数 [`TOKEN_ENV`].
+    /// 環境変数 [`TOKEN_ENV`] (実行のときか, ビルドのとき).
     Env,
 }
 
@@ -99,7 +106,21 @@ fn non_empty(value: Option<&str>) -> Option<String> {
         .map(str::to_string)
 }
 
-/// 使うトークンを決める. 保存したトークンを先に, なければ環境変数を使う.
+/// 環境変数のトークンを決める. 実行のときの環境変数を先に, なければ, ビルドのときの環境変数.
+///
+/// # Arguments
+///
+/// * `runtime` - 実行のときの環境変数 [`TOKEN_ENV`] の値.
+/// * `build` - ビルドのときの環境変数 ([`BUILD_TOKEN`]).
+///
+/// # Returns
+///
+/// 空でないトークン (どちらもなければ `None`).
+pub fn env_token(runtime: Option<&str>, build: Option<&str>) -> Option<String> {
+    non_empty(runtime).or_else(|| non_empty(build))
+}
+
+/// 使うトークンを決める. 保存したトークンを先に, なければ環境変数 ([`env_token`]) を使う.
 ///
 /// # Arguments
 ///
