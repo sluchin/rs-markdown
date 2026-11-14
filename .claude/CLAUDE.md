@@ -23,7 +23,7 @@ Markdown のエディタとビューア (rs-markdown)。ノートはローカル
 
 ## セキュリティの決まり (守ること)
 
-- **HackMD の API のトークンを、ログ、エラー、画面に出さない。** 画面に返すのは、あるかどうかと取り元だけ (`SettingsView`)。保存は設定のディレクトリの `settings.json` (Unix は 600)。使うトークンは、保存したトークンが空でなければそれ (優先)、空なら実行のときの環境変数 `HACKMD_APIKEY`、それもなければビルドのときの環境変数 `HACKMD_APIKEY` (`option_env!`。`settings::BUILD_TOKEN`)、どれもなければ設定が要る。トークンは実行ファイルに入るので、配るビルドや CI では `HACKMD_APIKEY` を設定しない。`docker-compose.yml` は、この環境変数をコンテナに渡す。
+- **HackMD の API のトークンを、ログ、エラー、画面に出さない。** 画面に返すのは、あるかどうかと取り元だけ (`SettingsView`)。保存は設定のディレクトリの `settings.json` (Unix は 600)。使うトークンは、保存したトークンが空でなければそれ (優先)、空なら実行のときの環境変数 `HACKMD_API_KEY`、それもなければビルドのときの環境変数 `HACKMD_API_KEY` (`option_env!`。`settings::BUILD_TOKEN`)、どれもなければ設定が要る。トークンは実行ファイルに入るので、配るビルドや CI では `HACKMD_API_KEY` を設定しない。`docker-compose.yml` は、この環境変数をコンテナに渡す。
 - 表示する HTML は、必ず `sanitize()` (DOMPurify) を通す (`renderMarkdown`)。`dangerouslySetInnerHTML` に渡すのはその結果だけ。
 - 数式と図は、安全にした後に描く (`Preview.tsx`)。変換では、TeX と Mermaid の文を、文字として要素に入れるだけにする (スタイル属性を許さないため)。KaTeX は `trust: false`、Mermaid は `securityLevel: "strict"` で描く。
 - 表示の中のリンクは、アプリの中で開かない (`lib/links.ts`。`http`、`https`、`mailto` だけをブラウザで開く)。

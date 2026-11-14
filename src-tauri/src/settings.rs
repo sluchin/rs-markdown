@@ -6,7 +6,7 @@
 //!
 //! トークンは画面に返さない (あるかどうかだけを返す). ファイルは, 自分だけが読めるようにする (Unix).
 //! 使うトークンは, 保存したトークンが空でなければそれ (環境変数があっても保存したトークンが先). 空なら,
-//! 実行するときの環境変数 `HACKMD_APIKEY`, それもなければ, ビルドのときの環境変数 `HACKMD_APIKEY`
+//! 実行するときの環境変数 `HACKMD_API_KEY`, それもなければ, ビルドのときの環境変数 `HACKMD_API_KEY`
 //! ([`BUILD_TOKEN`]). どれもなければ, 設定の画面でトークンを入れる必要がある.
 
 use std::fs;
@@ -16,13 +16,13 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 /// トークンを読む, 環境変数の名前.
-pub const TOKEN_ENV: &str = "HACKMD_APIKEY";
+pub const TOKEN_ENV: &str = "HACKMD_API_KEY";
 
 /// ビルドのときに, 環境変数 [`TOKEN_ENV`] に入っていたトークン (なければ `None`).
 ///
 /// トークンは, アプリの実行ファイルに入る (取り出せる) ので, 自分で使うビルドだけで使う (配るビルドや CI では,
 /// 設定しない).
-pub const BUILD_TOKEN: Option<&str> = option_env!("HACKMD_APIKEY");
+pub const BUILD_TOKEN: Option<&str> = option_env!("HACKMD_API_KEY");
 
 /// 保存する設定.
 #[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq, Eq)]
