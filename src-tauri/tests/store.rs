@@ -9,7 +9,8 @@ use std::fs;
 use tempfile::tempdir;
 
 use rs_markdown_lib::store::{
-    HackmdLink, MAX_TITLE_CHARS, Store, content_hash, is_valid_id, title_of,
+    HackmdLink, MAX_CATEGORY_CHARS, MAX_TITLE_CHARS, Store, content_hash, is_valid_category,
+    is_valid_id, title_of,
 };
 
 /// テスト用のつながり.
@@ -150,4 +151,46 @@ fn test_errors() {
     // 壊れた一覧
     fs::write(dir.path().join("index.json"), "{").unwrap();
     assert!(store.list().is_err());
+}
+
+#[test]
+fn test_is_valid_category() {
+    assert!(is_valid_category("仕事"));
+    assert!(is_valid_category(&"a".repeat(MAX_CATEGORY_CHARS)));
+    assert!(!is_valid_category(""));
+    assert!(!is_valid_category(" 仕事"));
+    assert!(!is_valid_category(&"a".repeat(MAX_CATEGORY_CHARS + 1)));
+    assert!(!is_valid_category("a\nb"));
+}
+
+#[test]
+fn test_set_category() {
+    let dir = tempdir().unwrap();
+    let store = Store::open(dir.path()).unwrap();
+    let a = store.create("a", None, 1).unwrap();
+    assert_eq!(a.category, None);
+    let set = store.set_category(&a.id, Some("仕事".to_string())).unwrap();
+    assert_eq!(set.category.as_deref(), Some("仕事"));
+    assert_eq!(store.meta(&a.id).unwrap().category.as_deref(), Some("仕事"));
+    let cleared = store.set_category(&a.id, None).unwrap();
+    assert_eq!(cleared.category, None);
+    assert!(
+        store
+            .set_category("00000000-0000-0000-0000-000000000000", None)
+            .is_err()
+    );
+}
+
+#[test]
+fn test_reads_an_index_without_categories() {
+    let dir = tempdir().unwrap();
+    fs::write(
+        dir.path().join("index.json"),
+        r#"[{"id":"00000000-0000-0000-0000-000000000000","title":"t","updatedAt":1,"hackmd":null}]"#,
+    )
+    .unwrap();
+    let store = Store::open(dir.path()).unwrap();
+    let notes = store.list().unwrap();
+    assert_eq!(notes[0].category, None);
+    assert_eq!(notes[0].file, None);
 }

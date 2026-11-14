@@ -117,6 +117,7 @@ async fn test_hackmd_commands_need_a_token() {
         commands::list_remote(&state).await.unwrap_err(),
         commands::import_note(&state, "abc").await.unwrap_err(),
         commands::check_token(&state).await.unwrap_err(),
+        commands::push_category(&state, "c").await.unwrap_err(),
     ] {
         assert_eq!(e.kind, ErrorKind::NoToken);
     }
@@ -374,4 +375,93 @@ fn test_read_and_clear_log() {
     fs::create_dir_all(&path).unwrap();
     assert_eq!(commands::read_log(&state).unwrap_err().kind, ErrorKind::Io);
     assert_eq!(commands::clear_log(&state).unwrap_err().kind, ErrorKind::Io);
+}
+
+#[tokio::test]
+async fn test_import_dir_and_set_category() {
+    let (dir, state) = state("http://127.0.0.1:1", None);
+    let docs = dir.path().join("docs");
+    fs::create_dir(&docs).unwrap();
+    fs::write(docs.join("a.md"), "# a").unwrap();
+    let docs = docs.to_str().unwrap();
+
+    let result = commands::import_dir(&state, docs, " 仕事 ").await.unwrap();
+    assert_eq!(result.skipped, 0);
+    assert_eq!(result.notes.len(), 1);
+    let id = &result.notes[0].id;
+    assert_eq!(result.notes[0].category.as_deref(), Some("仕事"));
+
+    let moved = commands::set_category(&state, id, "趣味").await.unwrap();
+    assert_eq!(moved.category.as_deref(), Some("趣味"));
+    let cleared = commands::set_category(&state, id, "  ").await.unwrap();
+    assert_eq!(cleared.category, None);
+}
+
+#[tokio::test]
+async fn test_import_dir_and_set_category_report_the_errors() {
+    let (dir, state) = state("http://127.0.0.1:1", None);
+    let docs = dir.path().to_str().unwrap();
+    for category in ["", "  ", "a\tb"] {
+        assert_eq!(
+            commands::import_dir(&state, docs, category)
+                .await
+                .unwrap_err()
+                .kind,
+            ErrorKind::InvalidCategory
+        );
+    }
+    let missing = dir.path().join("none");
+    assert_eq!(
+        commands::import_dir(&state, missing.to_str().unwrap(), "c")
+            .await
+            .unwrap_err()
+            .kind,
+        ErrorKind::FileNotFound
+    );
+    let id = commands::create_note(&state, "x").await.unwrap().id;
+    assert_eq!(
+        commands::set_category(&state, &id, &"a".repeat(41))
+            .await
+            .unwrap_err()
+            .kind,
+        ErrorKind::InvalidCategory
+    );
+    assert_eq!(
+        commands::set_category(&state, "00000000-0000-0000-0000-000000000000", "c")
+            .await
+            .unwrap_err()
+            .kind,
+        ErrorKind::NotFound
+    );
+}
+
+#[tokio::test]
+async fn test_push_category() {
+    let (_dir, state, mut server) = with_server().await;
+    let id = commands::create_note(&state, "# a").await.unwrap().id;
+    commands::set_category(&state, &id, "仕事").await.unwrap();
+    let _create = server
+        .mock("POST", "/notes")
+        .with_body(json!({"id": "n1"}).to_string())
+        .create_async()
+        .await;
+    let result = commands::push_category(&state, "仕事").await.unwrap();
+    assert_eq!(result.pushed[0].hackmd.as_ref().unwrap().note_id, "n1");
+    // 2 回目は, 変わっていないので送らない
+    let again = commands::push_category(&state, "仕事").await.unwrap();
+    assert!(again.pushed.is_empty());
+    assert_eq!(again.unchanged, 1);
+}
+
+#[tokio::test]
+async fn test_push_category_reports_the_api_errors() {
+    let (_dir, state, mut server) = with_server().await;
+    let id = commands::create_note(&state, "# a").await.unwrap().id;
+    commands::set_category(&state, &id, "c").await.unwrap();
+    let _create = server
+        .mock("POST", "/notes")
+        .with_status(429)
+        .create_async()
+        .await;
+    assert!(commands::push_category(&state, "c").await.is_err());
 }

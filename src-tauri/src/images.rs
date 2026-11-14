@@ -84,7 +84,7 @@ pub fn detect_format(bytes: &[u8]) -> Option<&'static str> {
     }
 }
 
-/// 画像のファイルの名前 (`<UUID>.<拡張子>`) として, 正しいか.
+/// 画像のファイルの名前 (`<UUID>.<拡張子>`) として正しいか.
 ///
 /// # Arguments
 ///

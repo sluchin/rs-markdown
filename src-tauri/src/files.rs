@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! 外の Markdown のファイルを読み書きする (ノートとして取り込むためと, 利用者がボタンを押したときに, 書き戻すため).
+//! ディレクトリから取り込むときは, その中のファイルを集める ([`list_markdown`]).
 //!
 //! 読み書きできるのは, 拡張子が `.md`, `.markdown`, `.txt` で, [`MAX_FILE_BYTES`] までの, UTF-8 のファイルだけ.
 //! 読むときは, 先頭の BOM を除き, 改行を `\n` にそろえる (エディタは `\n` で書く). 書くときは,
@@ -11,13 +12,16 @@
 use std::fmt;
 use std::fs;
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// 取り込めるファイルの大きさの上限 (バイト).
 pub const MAX_FILE_BYTES: u64 = 10 * 1024 * 1024;
 
 /// 取り込めるファイルの拡張子 (小文字).
 pub const EXTENSIONS: [&str; 3] = ["md", "markdown", "txt"];
+
+/// ディレクトリから 1 回に取り込めるファイルの数の上限.
+pub const MAX_DIR_FILES: usize = 1000;
 
 /// ファイルを取り込めなかった理由.
 #[derive(Debug)]
@@ -28,6 +32,8 @@ pub enum FileError {
     TooLarge,
     /// UTF-8 でない.
     NotText,
+    /// ディレクトリの中のファイルが多すぎる ([`MAX_DIR_FILES`] を超える).
+    TooMany,
     /// 読めない.
     Io(io::Error),
 }
@@ -38,6 +44,7 @@ impl fmt::Display for FileError {
             Self::Unsupported => write!(f, "unsupported file type"),
             Self::TooLarge => write!(f, "file larger than {} bytes", MAX_FILE_BYTES),
             Self::NotText => write!(f, "file is not UTF-8 text"),
+            Self::TooMany => write!(f, "more than {} files in the directory", MAX_DIR_FILES),
             Self::Io(e) => write!(f, "{}", e),
         }
     }
@@ -62,6 +69,42 @@ pub fn is_markdown_file(path: &Path) -> bool {
     path.extension()
         .and_then(|e| e.to_str())
         .is_some_and(|e| EXTENSIONS.contains(&e.to_ascii_lowercase().as_str()))
+}
+
+/// ディレクトリの中の, 取り込めるファイルを集める (下のディレクトリも含める).
+///
+/// 名前が `.` で始まるファイルとディレクトリは飛ばす. シンボリックリンクは, たどらない (輪にならないため).
+///
+/// # Arguments
+///
+/// * `dir` - ディレクトリのパス.
+///
+/// # Returns
+///
+/// ファイルのパス (パスの順). 読めないときは [`FileError::Io`], 多すぎるときは [`FileError::TooMany`].
+pub fn list_markdown(dir: &Path) -> Result<Vec<PathBuf>, FileError> {
+    let mut found = Vec::new();
+    let mut pending = vec![dir.to_path_buf()];
+    while let Some(current) = pending.pop() {
+        for entry in fs::read_dir(&current)? {
+            let entry = entry?;
+            if entry.file_name().to_string_lossy().starts_with('.') {
+                continue;
+            }
+            let kind = entry.file_type()?;
+            let path = entry.path();
+            if kind.is_dir() {
+                pending.push(path);
+            } else if kind.is_file() && is_markdown_file(&path) {
+                found.push(path);
+            }
+            if found.len() > MAX_DIR_FILES {
+                return Err(FileError::TooMany);
+            }
+        }
+    }
+    found.sort();
+    Ok(found)
 }
 
 /// UTF-8 の BOM.
@@ -104,7 +147,7 @@ pub fn read_markdown(path: &Path) -> Result<String, FileError> {
 
 /// 本文を, 今の Markdown のファイルに書く. 今のファイルの BOM と改行 (`\r\n`) に合わせる.
 ///
-/// 同じディレクトリの一時的なファイルに書いてから, 名前を変える (途中で落ちても, 前の内容が残る).
+/// 同じディレクトリの一時的なファイルに書いてから, 名前を変える (途中で落ちても前の内容が残る).
 /// 権限は, 今のファイルのものを引き継ぐ. シンボリックリンクなら, 指す先のファイルに書く.
 /// ファイルがなければ, 作らない ([`io::ErrorKind::NotFound`]).
 ///
@@ -138,7 +181,7 @@ pub fn write_markdown(path: &Path, content: &str) -> Result<(), FileError> {
     remove_on_error(Path::new(&tmp), renamed).map_err(FileError::from)
 }
 
-/// 失敗していたら, 一時的なファイルを消す (残さない). 消せなくても, 元の失敗を返す.
+/// 失敗していたら, 一時的なファイルを消す (残さない). 消せなくても元の失敗を返す.
 ///
 /// # Arguments
 ///

@@ -43,7 +43,7 @@ const MAX_CACHED_DIAGRAMS = 50;
 /** 描いた図 (Mermaid の文 → SVG). */
 const diagrams = new Map<string, string>();
 
-/** Mermaid (大きいので, 図があるときに読む). */
+/** Mermaid (大きいので図があるときに読む). */
 let mermaidLoader: Promise<Mermaid> | undefined;
 
 /** 図の要素の番号 (Mermaid に渡す `id`). */
@@ -133,7 +133,7 @@ function loadMermaid(): Promise<Mermaid> {
 }
 
 /**
- * Mermaid の図 (`class="mermaid"`. 中身は図の文) を描く. 描けなければ, 理由と文を出す.
+ * Mermaid の図 (`class="mermaid"`. 中身は図の文) を描く. 描けなければ理由と文を出す.
  *
  * @param root 表示
  * @param cancelled 表示が変わって, 描くのをやめるなら, true を返す関数

@@ -5,7 +5,7 @@
 //! 設定 (HackMD の API のトークン). アプリの設定のディレクトリの `settings.json` に置く.
 //!
 //! トークンは画面に返さない (あるかどうかだけを返す). ファイルは, 自分だけが読めるようにする (Unix).
-//! 使うトークンは, 保存したトークンが空でなければそれ (環境変数があっても, 保存したトークンが先). 空なら,
+//! 使うトークンは, 保存したトークンが空でなければそれ (環境変数があっても保存したトークンが先). 空なら,
 //! 実行するときの環境変数 `HACKMD_APIKEY`, それもなければ, ビルドのときの環境変数 `HACKMD_APIKEY`
 //! ([`BUILD_TOKEN`]). どれもなければ, 設定の画面でトークンを入れる必要がある.
 
@@ -58,7 +58,7 @@ pub fn settings_path(config_dir: &Path) -> PathBuf {
     config_dir.join("settings.json")
 }
 
-/// 設定を読む. ファイルがないか, 読めない内容なら, 初期値.
+/// 設定を読む. ファイルがないか, 読めない内容なら初期値.
 ///
 /// # Arguments
 ///
@@ -98,7 +98,7 @@ pub fn save(path: &Path, settings: &Settings) -> io::Result<()> {
     Ok(())
 }
 
-/// 空白を除いて, 空ならなしにする.
+/// 空白を除いて空ならなしにする.
 fn non_empty(value: Option<&str>) -> Option<String> {
     value
         .map(str::trim)
@@ -140,7 +140,7 @@ pub fn effective_token(settings: &Settings, env: Option<&str>) -> (Option<String
     }
 }
 
-/// 入れたトークンで, 設定を変える. 空なら, 保存したトークンを消す.
+/// 入れたトークンで設定を変える. 空なら, 保存したトークンを消す.
 ///
 /// # Arguments
 ///

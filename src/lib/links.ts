@@ -14,7 +14,7 @@ export type LinkAction =
   | { kind: "ignore" };
 
 /**
- * リンクの `href` から, することを決める. ブラウザで開くのは, `http`, `https`, `mailto` だけ.
+ * リンクの `href` からすることを決める. ブラウザで開くのは, `http`, `https`, `mailto` だけ.
  *
  * @param href リンクの `href` (属性のまま)
  * @returns すること

@@ -24,7 +24,7 @@ const TOC_MARK = "[TOC]";
 const PUNCTUATION = /[!"#$%&'()*+,./:;<=>?@[\\\]^`{|}~]/g;
 
 /**
- * 見出しの文字から, `id` を作る (HackMD と同じく, 空白を `-` にして, 記号を除く. 日本語は残す).
+ * 見出しの文字から, `id` を作る (HackMD と同じく, 空白を `-` にして記号を除く. 日本語は残す).
  *
  * @param text 見出しの文字
  * @returns `id`. 何も残らなければ, `heading`.
@@ -48,10 +48,10 @@ function plainText(children: Token[]): string {
 }
 
 /**
- * 目次の HTML を作る. 見出しの段に合わせて, 入れ子の一覧にする.
+ * 目次の HTML を作る. 見出しの段に合わせて入れ子の一覧にする.
  *
  * @param headings 見出し (出てくる順)
- * @returns HTML. 見出しがなければ, 空.
+ * @returns HTML. 見出しがなければ空.
  */
 export function tocHtml(headings: readonly Heading[]): string {
   if (headings.length === 0) {

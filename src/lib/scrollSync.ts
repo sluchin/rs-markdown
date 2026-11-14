@@ -55,7 +55,7 @@ export function interpolate(xs: readonly number[], ys: readonly number[], x: num
 }
 
 /**
- * 本文の行 (小数. 行の途中も) から, 表示の位置を求める.
+ * 本文の行 (小数. 行の途中も) から表示の位置を求める.
  *
  * @param anchors 組 ({@link normalizeAnchors} したもの)
  * @param line 行

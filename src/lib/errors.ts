@@ -28,6 +28,8 @@ const MESSAGES: Record<string, string> = {
   fileNotLinked: "このノートはファイルとつないでいません。",
   fileNotFound: "元のファイルが見つかりません。移したか、消した場合は、つながりを外してください。",
   fileIo: "元のファイルを読み書きできませんでした。",
+  tooManyFiles: "フォルダの中のファイルが多すぎます (1000 件まで)。",
+  invalidCategory: "カテゴリの名前は、40 文字までで入れてください。",
 };
 
 /**

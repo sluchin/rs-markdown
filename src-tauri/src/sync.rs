@@ -32,7 +32,7 @@ pub enum SyncState {
     Conflict,
 }
 
-/// ハッシュを比べて, 同期の状態を決める.
+/// ハッシュを比べて同期の状態を決める.
 ///
 /// # Arguments
 ///
@@ -59,7 +59,7 @@ pub enum SyncError {
     Api(ApiError),
     /// ローカルのノートの読み書きの失敗.
     Io(io::Error),
-    /// 両方が変わっていて, 上書きを選んでいない.
+    /// 両方が変わっていて上書きを選んでいない.
     Conflict,
     /// HackMD のノートとつないでいない.
     NotLinked,
@@ -106,12 +106,12 @@ fn link_of(remote: &RemoteNote, content: &str) -> HackmdLink {
     }
 }
 
-/// ノートのつながりを返す (つないでいなければ, エラー).
+/// ノートのつながりを返す (つないでいなければエラー).
 fn link_or_err(meta: &NoteMeta) -> Result<&HackmdLink, SyncError> {
     meta.hackmd.as_ref().ok_or(SyncError::NotLinked)
 }
 
-/// HackMD のノートを取得する. 本文がなければ, 空とする.
+/// HackMD のノートを取得する. 本文がなければ空とする.
 async fn fetch(client: &Client, note_id: &str) -> Result<(RemoteNote, String), SyncError> {
     let remote = client.get(note_id).await?;
     let content = remote.content.clone().unwrap_or_default();
@@ -184,6 +184,62 @@ pub async fn push(
     Ok(store.set_link(id, Some(link_of(&remote, &local)))?)
 }
 
+/// カテゴリのノートを, まとめて HackMD に送った結果.
+#[derive(Serialize, Debug, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CategoryPush {
+    /// 送ったノート (HackMD に作ったものも含む).
+    pub pushed: Vec<NoteMeta>,
+    /// 前に送ったときから変わっていないので, 送らなかったノートの数.
+    pub unchanged: usize,
+    /// HackMD の側が変わっていたので, 送らなかったノート (1 件ずつ選んでもらう).
+    pub conflicts: Vec<NoteMeta>,
+}
+
+/// カテゴリのノートを, まとめて HackMD に送る ([`push`] を 1 件ずつ. 上書きはしない).
+///
+/// つないでいて, 前に送ったときから本文が変わっていないノートは, HackMD に問い合わせずに飛ばす
+/// (API を呼べる回数に上限があるため). HackMD の側が変わっていたノートは, 衝突として数えて続ける.
+/// API の失敗 (回数の上限, 通信, トークン) では, そこで止める (それまでに送ったノートは, つながりが残る).
+///
+/// # Arguments
+///
+/// * `store` - ノートの保存先.
+/// * `client` - HackMD の API.
+/// * `category` - カテゴリ.
+///
+/// # Returns
+///
+/// 送った結果. 失敗したら [`SyncError`].
+pub async fn push_category(
+    store: &Store,
+    client: &Client,
+    category: &str,
+) -> Result<CategoryPush, SyncError> {
+    let mut result = CategoryPush {
+        pushed: Vec::new(),
+        unchanged: 0,
+        conflicts: Vec::new(),
+    };
+    let notes = store.list()?;
+    for meta in notes
+        .iter()
+        .filter(|n| n.category.as_deref() == Some(category))
+    {
+        if let Some(link) = meta.hackmd.as_ref()
+            && content_hash(&store.read(&meta.id)?) == link.synced_hash
+        {
+            result.unchanged += 1;
+            continue;
+        }
+        match push(store, client, &meta.id, false).await {
+            Err(SyncError::Conflict) => result.conflicts.push(meta.clone()),
+            pushed => result.pushed.push(pushed?),
+        }
+    }
+    Ok(result)
+}
+
 /// HackMD のノートの本文を, ローカルのノートに取り込む.
 ///
 /// # Arguments
@@ -252,7 +308,7 @@ pub async fn keep_both(
     Ok(created)
 }
 
-/// HackMD のノートを, ローカルに取り込む. もう取り込んであれば, そのノートを返す.
+/// HackMD のノートを, ローカルに取り込む. もう取り込んであればそのノートを返す.
 ///
 /// # Arguments
 ///

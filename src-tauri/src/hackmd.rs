@@ -5,7 +5,7 @@
 //! HackMD の API (v1) の呼び出し. 使うのは, 自分のノートの一覧, 取得, 作成, 本文の更新だけ
 //! (HackMD のノートは消さない).
 //!
-//! API のトークンはログに書かない. エラーにも, 応答の本文を入れない.
+//! API のトークンはログに書かない. エラーにも応答の本文を入れない.
 
 use std::fmt;
 use std::time::Duration;
@@ -162,7 +162,7 @@ impl Client {
             .bearer_auth(&self.token)
     }
 
-    /// リクエストを送って, 状態を確かめる.
+    /// リクエストを送って状態を確かめる.
     async fn send(&self, request: reqwest::RequestBuilder) -> Result<reqwest::Response, ApiError> {
         let response = request
             .send()
@@ -172,7 +172,7 @@ impl Client {
         Ok(response)
     }
 
-    /// リクエストを送って, 応答の JSON を読む.
+    /// リクエストを送って応答の JSON を読む.
     async fn send_json<T: for<'de> Deserialize<'de>>(
         &self,
         request: reqwest::RequestBuilder,

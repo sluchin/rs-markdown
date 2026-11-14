@@ -71,7 +71,7 @@ export function mathInline(state: StateInline, silent: boolean): boolean {
 }
 
 /**
- * 段落の数式 (`$$` で囲む. 1 行でも, 複数の行でも) を読む.
+ * 段落の数式 (`$$` で囲む. 1 行でも複数の行でも) を読む.
  *
  * @param state markdown-it の解析の状態
  * @param startLine 始めの行

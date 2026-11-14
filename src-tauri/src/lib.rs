@@ -23,8 +23,9 @@ use tokio::sync::Mutex;
 
 use commands::{AppState, SettingsView};
 use errors::CommandError;
+use filesync::DirImport;
 use store::{NoteMeta, Store};
-use sync::{RemoteEntry, SyncState};
+use sync::{CategoryPush, RemoteEntry, SyncState};
 
 // 画面から呼ぶコマンド. 中身は `commands` にあり, ここでは, アプリの状態を渡すだけ.
 
@@ -130,11 +131,43 @@ async fn import_note(
     commands::import_note(&state, &note_id).await
 }
 
+/// カテゴリのノートを, まとめて HackMD に送る.
+#[cfg(not(tarpaulin_include))]
+#[tauri::command]
+async fn push_category(
+    state: State<'_, AppState>,
+    category: String,
+) -> Result<CategoryPush, CommandError> {
+    commands::push_category(&state, &category).await
+}
+
 /// 外の Markdown のファイルを, ファイルとつないだノートとして取り込む.
 #[cfg(not(tarpaulin_include))]
 #[tauri::command]
 async fn import_file(state: State<'_, AppState>, path: String) -> Result<NoteMeta, CommandError> {
     commands::import_file(&state, &path).await
+}
+
+/// ディレクトリの中の Markdown のファイルを, 全て取り込んでカテゴリに入れる.
+#[cfg(not(tarpaulin_include))]
+#[tauri::command]
+async fn import_dir(
+    state: State<'_, AppState>,
+    path: String,
+    category: String,
+) -> Result<DirImport, CommandError> {
+    commands::import_dir(&state, &path, &category).await
+}
+
+/// ノートのカテゴリを変える.
+#[cfg(not(tarpaulin_include))]
+#[tauri::command]
+async fn set_category(
+    state: State<'_, AppState>,
+    id: String,
+    category: String,
+) -> Result<NoteMeta, CommandError> {
+    commands::set_category(&state, &id, &category).await
 }
 
 /// ノートと元のファイルの同期の状態を返す.
@@ -166,7 +199,7 @@ async fn pull_file(
     commands::pull_file(&state, &id, force).await
 }
 
-/// ファイルとの衝突で, 両方を残す.
+/// ファイルとの衝突で両方を残す.
 #[cfg(not(tarpaulin_include))]
 #[tauri::command]
 async fn keep_both_file(state: State<'_, AppState>, id: String) -> Result<NoteMeta, CommandError> {
@@ -211,7 +244,7 @@ fn get_settings(state: State<'_, AppState>) -> SettingsView {
     commands::get_settings(&state)
 }
 
-/// HackMD の API のトークンを保存する (空なら, 消す).
+/// HackMD の API のトークンを保存する (空なら消す).
 #[cfg(not(tarpaulin_include))]
 #[tauri::command]
 fn set_token(state: State<'_, AppState>, token: Option<String>) -> Result<(), CommandError> {
@@ -239,7 +272,7 @@ fn clear_log(state: State<'_, AppState>) -> Result<(), CommandError> {
     commands::clear_log(&state)
 }
 
-/// アプリの状態を作る (ディレクトリを決めて, ログを始める).
+/// アプリの状態を作る (ディレクトリを決めてログを始める).
 #[cfg(not(tarpaulin_include))]
 fn setup(app: &tauri::App) -> Result<AppState, Box<dyn std::error::Error>> {
     let data_dir = app.path().app_data_dir()?;
@@ -290,6 +323,9 @@ pub fn run() {
             read_log,
             clear_log,
             import_file,
+            import_dir,
+            set_category,
+            push_category,
             file_status,
             push_file,
             pull_file,

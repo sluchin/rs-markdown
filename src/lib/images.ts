@@ -11,7 +11,7 @@ export const IMAGE_PREFIX = "images/";
 const IMAGE_NAME = /^[0-9a-f-]{36}\.(?:png|jpg|gif|webp)$/i;
 
 /**
- * 表示の画像の `src` が, アプリのデータの画像 (`images/<名前>`) なら, 名前を返す.
+ * 表示の画像の `src` が, アプリのデータの画像 (`images/<名前>`) なら名前を返す.
  *
  * @param src 画像の `src` (属性のまま)
  * @returns 名前. アプリのデータの画像でなければ, `undefined`.

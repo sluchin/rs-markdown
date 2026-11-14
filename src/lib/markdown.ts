@@ -58,7 +58,7 @@ export function frontMatterLines(source: string): number {
  *
  * @param code コード
  * @param language 言語 (` ```ts ` の `ts`)
- * @returns 色付けした HTML. 知らない言語なら, 空.
+ * @returns 色付けした HTML. 知らない言語なら空.
  */
 export function highlight(code: string, language: string): string {
   if (language === "" || !hljs.getLanguage(language)) {
@@ -185,7 +185,7 @@ export function sanitize(html: string): string {
 }
 
 /**
- * Markdown を, 表示する HTML にする (先頭の YAML を除いて, 変換して, 安全にする).
+ * Markdown を, 表示する HTML にする (先頭の YAML を除いて変換して安全にする).
  *
  * @param source Markdown
  * @returns 安全な HTML

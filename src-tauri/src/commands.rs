@@ -13,9 +13,10 @@ use tauri::ipc::InvokeBody;
 use tokio::sync::Mutex;
 
 use crate::errors::{CommandError, ErrorKind};
+use crate::filesync::DirImport;
 use crate::settings::{self, TokenSource};
-use crate::store::{NoteMeta, Store};
-use crate::sync::{self, RemoteEntry, SyncState};
+use crate::store::{self as notes, NoteMeta, Store};
+use crate::sync::{self, CategoryPush, RemoteEntry, SyncState};
 use crate::{filesync, hackmd, images, logging};
 
 /// アプリの状態.
@@ -45,7 +46,7 @@ fn token(state: &AppState) -> (Option<String>, TokenSource) {
     settings::effective_token(&saved, state.env_token.as_deref())
 }
 
-/// HackMD の API の呼び出しを作る. トークンがなければ, エラー.
+/// HackMD の API の呼び出しを作る. トークンがなければエラー.
 fn client(state: &AppState) -> Result<hackmd::Client, CommandError> {
     let (Some(token), _) = token(state) else {
         return Err(CommandError::no_token());
@@ -255,6 +256,31 @@ pub async fn list_remote(state: &AppState) -> Result<Vec<RemoteEntry>, CommandEr
         .map_err(|e| report("list_remote", e))
 }
 
+/// カテゴリのノートを, まとめて HackMD に送る (上書きはしない).
+///
+/// # Arguments
+///
+/// * `state` - アプリの状態.
+/// * `category` - カテゴリ.
+///
+/// # Returns
+///
+/// 送った結果.
+pub async fn push_category(state: &AppState, category: &str) -> Result<CategoryPush, CommandError> {
+    let client = client(state)?;
+    let store = state.store.lock().await;
+    let result = sync::push_category(&store, &client, category)
+        .await
+        .map_err(|e| report("push_category", e))?;
+    let (pushed, unchanged, conflicts) = (
+        result.pushed.len(),
+        result.unchanged,
+        result.conflicts.len(),
+    );
+    log::info!("Pushed a category: {pushed} sent, {unchanged} unchanged, {conflicts} conflicts");
+    Ok(result)
+}
+
 /// HackMD のノートを, ローカルに取り込む.
 ///
 /// # Arguments
@@ -273,7 +299,7 @@ pub async fn import_note(state: &AppState, note_id: &str) -> Result<NoteMeta, Co
         .map_err(|e| report("import_note", e))
 }
 
-/// 外の Markdown のファイルを, ファイルとつないだノートとして取り込む (もう取り込んであれば, そのノート).
+/// 外の Markdown のファイルを, ファイルとつないだノートとして取り込む (もう取り込んであればそのノート).
 ///
 /// # Arguments
 ///
@@ -290,6 +316,83 @@ pub async fn import_file(state: &AppState, path: &str) -> Result<NoteMeta, Comma
     // パスと本文は, ログに書かない
     log::info!("Imported a file as the note {}", meta.id);
     Ok(meta)
+}
+
+/// 画面から受け取ったカテゴリを確かめる. 前後の空白を除いて, 空なら `None`.
+///
+/// # Arguments
+///
+/// * `category` - カテゴリ.
+///
+/// # Returns
+///
+/// カテゴリ. 長すぎるか, 制御文字を含めば [`ErrorKind::InvalidCategory`].
+pub fn category_of(category: &str) -> Result<Option<String>, CommandError> {
+    let trimmed = category.trim();
+    if trimmed.is_empty() {
+        return Ok(None);
+    }
+    if !notes::is_valid_category(trimmed) {
+        return Err(CommandError::new(
+            ErrorKind::InvalidCategory,
+            "invalid category name",
+        ));
+    }
+    Ok(Some(trimmed.to_string()))
+}
+
+/// ディレクトリの中の Markdown のファイルを, 全て取り込んでカテゴリに入れる.
+///
+/// # Arguments
+///
+/// * `state` - アプリの状態.
+/// * `path` - ディレクトリのパス.
+/// * `category` - 入れるカテゴリ (必須).
+///
+/// # Returns
+///
+/// 取り込んだ結果.
+pub async fn import_dir(
+    state: &AppState,
+    path: &str,
+    category: &str,
+) -> Result<DirImport, CommandError> {
+    let Some(category) = category_of(category).map_err(|e| report("import_dir", e))? else {
+        return Err(report(
+            "import_dir",
+            CommandError::new(ErrorKind::InvalidCategory, "a category is required"),
+        ));
+    };
+    let store = state.store.lock().await;
+    let result = filesync::import_dir(&store, Path::new(path), &category, now_millis())
+        .map_err(|e| report("import_dir", e))?;
+    let (imported, skipped) = (result.notes.len(), result.skipped);
+    // パスと本文は, ログに書かない
+    log::info!("Imported {imported} files from a directory ({skipped} skipped)");
+    Ok(result)
+}
+
+/// ノートのカテゴリを変える.
+///
+/// # Arguments
+///
+/// * `state` - アプリの状態.
+/// * `id` - ノートの ID.
+/// * `category` - カテゴリ (空なら分けない).
+///
+/// # Returns
+///
+/// 変えたあとのノート.
+pub async fn set_category(
+    state: &AppState,
+    id: &str,
+    category: &str,
+) -> Result<NoteMeta, CommandError> {
+    let category = category_of(category).map_err(|e| report("set_category", e))?;
+    let store = state.store.lock().await;
+    store
+        .set_category(id, category)
+        .map_err(|e| report("set_category", e))
 }
 
 /// ノートと元のファイルの同期の状態を返す.
@@ -339,7 +442,7 @@ pub async fn pull_file(state: &AppState, id: &str, force: bool) -> Result<NoteMe
     filesync::pull(&store, id, force, now_millis()).map_err(|e| report("pull_file", e))
 }
 
-/// ファイルとの衝突で, 両方を残す.
+/// ファイルとの衝突で両方を残す.
 ///
 /// # Arguments
 ///
@@ -411,7 +514,7 @@ pub fn import_image(state: &AppState, path: &str) -> Result<String, CommandError
     Ok(name)
 }
 
-/// 画像を置くディレクトリを返す (表示で, 画像を読むのに使う).
+/// 画像を置くディレクトリを返す (表示で画像を読むのに使う).
 ///
 /// # Arguments
 ///
@@ -449,7 +552,7 @@ pub fn get_settings(state: &AppState) -> SettingsView {
     }
 }
 
-/// HackMD の API のトークンを保存する (空なら, 消す).
+/// HackMD の API のトークンを保存する (空なら消す).
 ///
 /// # Arguments
 ///

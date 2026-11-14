@@ -11,7 +11,7 @@ use tempfile::{TempDir, tempdir};
 use rs_markdown_lib::hackmd::Client;
 use rs_markdown_lib::store::{HackmdLink, Store, content_hash};
 use rs_markdown_lib::sync::{
-    self, SyncError, SyncState, keep_both, pull, push, remote_list, state_of,
+    self, SyncError, SyncState, keep_both, pull, push, push_category, remote_list, state_of,
 };
 
 /// テストの準備: ノートの保存先と, HackMD の代わりのサーバー.
@@ -258,4 +258,109 @@ async fn test_sync_reports_the_local_errors() {
         .await
         .unwrap_err();
     assert!(matches!(e, SyncError::Io(_)));
+}
+
+/// カテゴリを付けたノートを作る.
+fn in_category(store: &Store, id: &str, category: &str) {
+    store.set_category(id, Some(category.to_string())).unwrap();
+}
+
+#[tokio::test]
+async fn test_push_category() {
+    let (_dir, store, mut server, client) = setup().await;
+    // つないでいないノートは, HackMD に作る
+    let new = store.create("# New", None, 1).unwrap().id;
+    in_category(&store, &new, "仕事");
+    // 変わっていないノートは, 問い合わせない
+    let same = synced_note(&store, "n1", "same");
+    in_category(&store, &same, "仕事");
+    let get_same = server
+        .mock("GET", "/notes/n1")
+        .expect(0)
+        .create_async()
+        .await;
+    // ローカルだけが変わったノートは, 送る
+    let changed = synced_note(&store, "n2", "base");
+    store.save(&changed, "local", 2).unwrap();
+    in_category(&store, &changed, "仕事");
+    remote(&mut server, "n2", "base").await;
+    let patch = server
+        .mock("PATCH", "/notes/n2")
+        .match_body(Matcher::Json(json!({"content": "local"})))
+        .with_status(202)
+        .create_async()
+        .await;
+    // HackMD の側も変わったノートは, 衝突として残す
+    let conflict = synced_note(&store, "n3", "base");
+    store.save(&conflict, "local", 2).unwrap();
+    in_category(&store, &conflict, "仕事");
+    remote(&mut server, "n3", "remote").await;
+    // ほかのカテゴリと, カテゴリのないノートは, 送らない
+    let other = store.create("other", None, 1).unwrap().id;
+    in_category(&store, &other, "趣味");
+    store.create("none", None, 1).unwrap();
+    let create = server
+        .mock("POST", "/notes")
+        .with_status(201)
+        .with_body(json!({"id": "n9"}).to_string())
+        .expect(1)
+        .create_async()
+        .await;
+
+    let result = push_category(&store, &client, "仕事").await.unwrap();
+    let mut pushed: Vec<_> = result.pushed.iter().map(|n| n.id.as_str()).collect();
+    pushed.sort();
+    let mut expected = vec![new.as_str(), changed.as_str()];
+    expected.sort();
+    assert_eq!(pushed, expected);
+    assert_eq!(result.unchanged, 1);
+    assert_eq!(result.conflicts.len(), 1);
+    assert_eq!(result.conflicts[0].id, conflict);
+    assert_eq!(
+        store
+            .list()
+            .unwrap()
+            .iter()
+            .find(|n| n.id == new)
+            .unwrap()
+            .hackmd
+            .as_ref()
+            .unwrap()
+            .note_id,
+        "n9"
+    );
+    get_same.assert_async().await;
+    patch.assert_async().await;
+    create.assert_async().await;
+    // 空のカテゴリは, 何もしない
+    let empty = push_category(&store, &client, "なし").await.unwrap();
+    assert!(empty.pushed.is_empty() && empty.unchanged == 0 && empty.conflicts.is_empty());
+}
+
+#[tokio::test]
+async fn test_push_category_stops_at_an_api_error() {
+    let (_dir, store, mut server, client) = setup().await;
+    let id = store.create("# a", None, 1).unwrap().id;
+    in_category(&store, &id, "c");
+    server
+        .mock("POST", "/notes")
+        .with_status(401)
+        .create_async()
+        .await;
+    assert!(matches!(
+        push_category(&store, &client, "c").await.unwrap_err(),
+        SyncError::Api(_)
+    ));
+}
+
+#[tokio::test]
+async fn test_push_category_reports_a_missing_note() {
+    let (dir, store, _server, client) = setup().await;
+    let id = synced_note(&store, "n1", "x");
+    in_category(&store, &id, "c");
+    std::fs::remove_file(dir.path().join(format!("{id}.md"))).unwrap();
+    assert!(matches!(
+        push_category(&store, &client, "c").await.unwrap_err(),
+        SyncError::Io(_)
+    ));
 }

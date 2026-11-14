@@ -11,7 +11,8 @@ use tempfile::tempdir;
 
 use rs_markdown_lib::errors::{CommandError, ErrorKind};
 use rs_markdown_lib::files::{
-    FileError, MAX_FILE_BYTES, is_markdown_file, read_markdown, remove_on_error, write_markdown,
+    FileError, MAX_DIR_FILES, MAX_FILE_BYTES, is_markdown_file, list_markdown, read_markdown,
+    remove_on_error, write_markdown,
 };
 
 #[test]
@@ -74,6 +75,9 @@ fn test_file_error_to_command_error() {
         std::io::ErrorKind::NotFound,
     )));
     assert_eq!(missing.kind, ErrorKind::NotFound);
+    let many = CommandError::from(FileError::TooMany);
+    assert_eq!(many.kind, ErrorKind::TooManyFiles);
+    assert!(many.message.contains("more than"));
 }
 
 #[test]
@@ -168,4 +172,59 @@ fn test_remove_on_error_removes_the_temporary_file_only_on_failure() {
     assert!(!tmp.exists());
     // 消せなくても (もうない), 元の失敗を返す
     assert!(remove_on_error(&tmp, Err(std::io::Error::other("rename"))).is_err());
+}
+
+#[test]
+fn test_list_markdown_collects_files_in_subdirectories() {
+    let dir = tempdir().unwrap();
+    let root = dir.path();
+    fs::create_dir_all(root.join("sub/deep")).unwrap();
+    fs::create_dir_all(root.join(".git")).unwrap();
+    for name in [
+        "b.md",
+        "a.markdown",
+        "c.png",
+        ".hidden.md",
+        "sub/d.txt",
+        "sub/deep/e.MD",
+        ".git/f.md",
+    ] {
+        fs::write(root.join(name), "x").unwrap();
+    }
+    let found = list_markdown(root).unwrap();
+    let names: Vec<_> = found
+        .iter()
+        .map(|p| {
+            p.strip_prefix(root)
+                .unwrap()
+                .to_string_lossy()
+                .replace('\\', "/")
+        })
+        .collect();
+    assert_eq!(names, ["a.markdown", "b.md", "sub/d.txt", "sub/deep/e.MD"]);
+}
+
+#[cfg(unix)]
+#[test]
+fn test_list_markdown_does_not_follow_symlinks() {
+    let dir = tempdir().unwrap();
+    let root = dir.path().join("root");
+    fs::create_dir_all(&root).unwrap();
+    fs::write(root.join("a.md"), "x").unwrap();
+    std::os::unix::fs::symlink(&root, root.join("loop")).unwrap();
+    std::os::unix::fs::symlink(root.join("a.md"), root.join("link.md")).unwrap();
+    assert_eq!(list_markdown(&root).unwrap(), [root.join("a.md")]);
+}
+
+#[test]
+fn test_list_markdown_rejects_too_many_files_and_missing_directories() {
+    let dir = tempdir().unwrap();
+    for i in 0..=MAX_DIR_FILES {
+        fs::write(dir.path().join(format!("{}.md", i)), "x").unwrap();
+    }
+    assert!(matches!(list_markdown(dir.path()), Err(FileError::TooMany)));
+    assert!(matches!(
+        list_markdown(&dir.path().join("none")),
+        Err(FileError::Io(_))
+    ));
 }

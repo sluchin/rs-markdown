@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! 画面に返すエラー. 画面は `kind` で, 出す文 (日本語) を選ぶ. `message` は英語で, ログ用.
+//! 画面に返すエラー. 画面は `kind` で, 出す文 (日本語) を選ぶ. `message` は英語でログ用.
 
 use std::io;
 
@@ -46,6 +46,10 @@ pub enum ErrorKind {
     FileNotFound,
     /// 元のファイルの読み書きの失敗.
     FileIo,
+    /// ディレクトリの中のファイルが多すぎる.
+    TooManyFiles,
+    /// カテゴリの名前が正しくない (空, 長すぎる, 制御文字).
+    InvalidCategory,
     /// そのほか.
     Other,
 }
@@ -138,6 +142,7 @@ impl From<FileError> for CommandError {
     fn from(e: FileError) -> Self {
         match e {
             FileError::Io(io) => io.into(),
+            FileError::TooMany => Self::new(ErrorKind::TooManyFiles, e.to_string()),
             FileError::Unsupported | FileError::TooLarge | FileError::NotText => {
                 Self::new(ErrorKind::InvalidFile, e.to_string())
             }

@@ -21,11 +21,11 @@ import { FORMAT_BUTTONS, type FormatCommand, formatEdit } from "../lib/format";
 import { isImageType } from "../lib/images";
 import type { TextChange } from "../lib/tasks";
 
-/** 親から, エディタを動かす窓口. */
+/** 親からエディタを動かす窓口. */
 export interface EditorHandle {
   /** 書式の操作をする (ツールバー). */
   format: (command: FormatCommand) => void;
-  /** 文字を入れる. 画面の位置 (落とした場所) があれば, そこに. なければ, カーソルに. */
+  /** 文字を入れる. 画面の位置 (落とした場所) があればそこに. なければカーソルに. */
   insert: (text: string, at?: { x: number; y: number }) => void;
   /** 本文の行 (小数) が, 上の端に来るように動かす. */
   scrollToLine: (line: number) => void;
@@ -35,7 +35,7 @@ export interface EditorHandle {
 
 /** エディタの引数. */
 interface Props {
-  /** 始めの本文 (変わっても, 読み直さない. 読み直すときは, `key` を変える). */
+  /** 始めの本文 (変わっても読み直さない. 読み直すときは, `key` を変える). */
   initial: string;
   /** 本文が変わったときに呼ぶ. */
   onChange: (content: string) => void;
@@ -43,7 +43,7 @@ interface Props {
   onPasteImage: (file: File) => Promise<string | undefined>;
   /** 動かしたときに, 上の端の本文の行 (小数) と, 行の数を知らせる. */
   onScrollLine: (line: number, lines: number) => void;
-  /** 親から, エディタを動かす窓口. */
+  /** 親からエディタを動かす窓口. */
   handle: Ref<EditorHandle>;
 }
 
@@ -202,7 +202,7 @@ function runFormat(view: EditorView, command: FormatCommand): boolean {
 }
 
 /**
- * 貼り付けた画像を置いて, カーソルの位置に Markdown を入れる (複数なら, 行を分ける).
+ * 貼り付けた画像を置いて, カーソルの位置に Markdown を入れる (複数なら行を分ける).
  *
  * @param view エディタ
  * @param files 画像

@@ -13,6 +13,8 @@ use std::fs;
 use std::io;
 use std::path::Path;
 
+use serde::Serialize;
+
 use crate::files::{self, FileError};
 use crate::store::{FileLink, NoteMeta, Store, content_hash};
 use crate::sync::{SyncState, state_of};
@@ -24,7 +26,7 @@ pub enum FileSyncError {
     Note(io::Error),
     /// 元のファイルの読み書きの失敗.
     File(FileError),
-    /// 両方が変わっていて, 上書きを選んでいない.
+    /// 両方が変わっていて上書きを選んでいない.
     Conflict,
     /// ファイルとつないでいない.
     NotLinked,
@@ -53,6 +55,16 @@ impl From<FileError> for FileSyncError {
     }
 }
 
+/// ディレクトリから取り込んだ結果.
+#[derive(Serialize, Debug, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct DirImport {
+    /// 取り込んだノート (もう取り込んであったものも含む).
+    pub notes: Vec<NoteMeta>,
+    /// 取り込めなかったファイルの数 (大きすぎる, UTF-8 でない, 読めない).
+    pub skipped: usize,
+}
+
 /// ファイルと合わせたあとの, つながりを作る.
 ///
 /// # Arguments
@@ -70,7 +82,7 @@ fn link_of(path: &str, content: &str) -> FileLink {
     }
 }
 
-/// ノートのつながりを返す (つないでいなければ, エラー).
+/// ノートのつながりを返す (つないでいなければエラー).
 fn link_or_err(meta: &NoteMeta) -> Result<&FileLink, FileSyncError> {
     meta.file.as_ref().ok_or(FileSyncError::NotLinked)
 }
@@ -102,7 +114,7 @@ fn compare(
 }
 
 /// 外の Markdown のファイルを, ファイルとつないだノートとして取り込む.
-/// 同じファイルを, もう取り込んであれば, そのノートを返す.
+/// 同じファイルを, もう取り込んであればそのノートを返す.
 ///
 /// # Arguments
 ///
@@ -124,6 +136,41 @@ pub fn import(store: &Store, path: &Path, now: u64) -> Result<NoteMeta, FileSync
     }
     let created = store.create(&content, None, now)?;
     Ok(store.set_file(&created.id, Some(link_of(&canonical, &content)))?)
+}
+
+/// ディレクトリの中の Markdown のファイルを, 全て取り込んで, カテゴリに入れる ([`files::list_markdown`]).
+/// もう取り込んであるファイルは, そのノートをカテゴリに入れる. 取り込めないファイルは飛ばして, 数える.
+///
+/// # Arguments
+///
+/// * `store` - ノートの保存先.
+/// * `dir` - ディレクトリのパス.
+/// * `category` - 入れるカテゴリ (確かめてから渡す. [`crate::store::is_valid_category`]).
+/// * `now` - 今の日時 (UNIX 時間のミリ秒).
+///
+/// # Returns
+///
+/// 取り込んだ結果. ディレクトリを読めない, ファイルが多すぎる, ノートを書けないときは [`FileSyncError`].
+pub fn import_dir(
+    store: &Store,
+    dir: &Path,
+    category: &str,
+    now: u64,
+) -> Result<DirImport, FileSyncError> {
+    let mut result = DirImport {
+        notes: Vec::new(),
+        skipped: 0,
+    };
+    for path in files::list_markdown(dir)? {
+        let imported = import(store, &path, now);
+        if let Err(FileSyncError::File(_)) = imported {
+            result.skipped += 1;
+            continue;
+        }
+        let meta = store.set_category(&imported?.id, Some(category.to_string()))?;
+        result.notes.push(meta);
+    }
+    Ok(result)
 }
 
 /// ノートとファイルの同期の状態を返す.

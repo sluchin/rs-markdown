@@ -11,7 +11,7 @@ import * as api from "./api";
 
 /** HackMD の一覧の画面の引数. */
 interface Props {
-  /** ローカルのノートを開く (取り込んだあとも, 呼ぶ). */
+  /** ローカルのノートを開く (取り込んだあとも呼ぶ). */
   onOpen: (id: string) => void;
   /** 閉じる. */
   onClose: () => void;

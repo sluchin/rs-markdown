@@ -168,3 +168,36 @@ fn test_old_index_without_the_file_field() {
     let store = Store::open(dir.path()).unwrap();
     assert!(store.list().unwrap()[0].file.is_none());
 }
+
+#[test]
+fn test_import_dir_puts_the_files_into_the_category() {
+    let (dir, store, _) = setup("x");
+    // ノートの保存先 (notes/) と分けて, 取り込むファイルを置く
+    let docs = dir.path().join("docs");
+    fs::create_dir_all(docs.join("sub")).unwrap();
+    let path = docs.join("a.md");
+    fs::write(&path, "# a").unwrap();
+    fs::write(docs.join("sub").join("b.md"), "# b").unwrap();
+    fs::write(docs.join("bad.md"), [0xffu8, 0xfe]).unwrap();
+    // もう取り込んであるファイルも, カテゴリに入れる
+    let before = filesync::import(&store, &path, 1).unwrap();
+
+    let result = filesync::import_dir(&store, &docs, "仕事", 2).unwrap();
+    assert_eq!(result.skipped, 1);
+    assert_eq!(result.notes.len(), 2);
+    assert!(result.notes.iter().any(|n| n.id == before.id));
+    assert!(
+        result
+            .notes
+            .iter()
+            .all(|n| n.category.as_deref() == Some("仕事") && n.file.is_some())
+    );
+    assert_eq!(store.list().unwrap().len(), 2);
+}
+
+#[test]
+fn test_import_dir_rejects_a_missing_directory() {
+    let (dir, store, _) = setup("x");
+    let missing = filesync::import_dir(&store, &dir.path().join("none"), "c", 1);
+    assert!(matches!(missing, Err(FileSyncError::File(_))));
+}

@@ -149,6 +149,76 @@ input {
   background: var(--selected);
 }
 
+/* 一覧に出す名前 (題名か, ファイル名) の切り替え */
+.list-label {
+  display: flex;
+  gap: 4px;
+  margin: 0 8px 8px;
+}
+
+.list-label button {
+  flex: 1;
+}
+
+.list-label button.selected {
+  background: var(--selected);
+}
+
+/* カテゴリごとの一覧 (まとめて, スクロールする) */
+.note-groups {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.note-groups .note-list {
+  overflow: visible;
+}
+
+.note-group .category-row {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.note-group .push-category {
+  flex: none;
+  margin-right: 6px;
+  padding: 2px 8px;
+  font-size: 0.8rem;
+}
+
+.note-group .category {
+  display: flex;
+  flex: 1;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+  text-align: left;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 6px 8px;
+  font-weight: bold;
+}
+
+.note-group .category .name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.note-group .category .count {
+  color: var(--muted);
+  font-weight: normal;
+  font-size: 0.8rem;
+}
+
+.note-group .note-list button {
+  padding-left: 24px;
+}
+
 .note-list .title,
 .remote-list .title {
   overflow: hidden;

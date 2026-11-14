@@ -38,6 +38,7 @@
     "markdown-it-footnote": "^4.0.0",
     "markdown-it-ins": "^4.0.0",
     "markdown-it-mark": "^4.0.0",
+    "markdownlint": "0.37.4",
     "markdown-it-sub": "^2.0.0",
     "markdown-it-sup": "^2.0.0",
     "mermaid": "^12.2.0",

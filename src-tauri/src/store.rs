@@ -4,8 +4,8 @@
 
 //! ノートの保存 (アプリのデータの `notes/`).
 //!
-//! 本文は `<ID>.md`, 一覧 (題名, 更新した日時, HackMD とのつながり) は `index.json` に置く.
-//! 書き込みは, 一時的なファイルに書いてから名前を変える (途中で落ちても, 前の内容が残る).
+//! 本文は `<ID>.md`, 一覧 (題名, 更新した日時, カテゴリ, HackMD とのつながり) は `index.json` に置く.
+//! 書き込みは, 一時的なファイルに書いてから名前を変える (途中で落ちても前の内容が残る).
 
 use std::fs;
 use std::io;
@@ -16,6 +16,9 @@ use sha2::{Digest, Sha256};
 
 /// 題名の最大の文字数. 長い行は, ここで切る.
 pub const MAX_TITLE_CHARS: usize = 80;
+
+/// カテゴリの名前の最大の文字数.
+pub const MAX_CATEGORY_CHARS: usize = 40;
 
 /// ノートと, HackMD のノートとのつながり.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -54,6 +57,9 @@ pub struct NoteMeta {
     /// 取り込んだ元のファイルとのつながり (なければ `None`. 前の版の一覧には, ない).
     #[serde(default)]
     pub file: Option<FileLink>,
+    /// カテゴリ (一覧を分ける名前. 分けていなければ `None`. 前の版の一覧には, ない).
+    #[serde(default)]
+    pub category: Option<String>,
 }
 
 /// 本文のハッシュ (SHA-256 の 16 進数) を返す.
@@ -81,7 +87,7 @@ pub fn content_hash(content: &str) -> String {
 ///
 /// # Returns
 ///
-/// 題名 ([`MAX_TITLE_CHARS`] 文字まで). 本文が空なら, 空の文字列.
+/// 題名 ([`MAX_TITLE_CHARS`] 文字まで). 本文が空なら空の文字列.
 pub fn title_of(content: &str) -> String {
     let mut lines = content.lines().peekable();
     let mut front_title = None;
@@ -107,6 +113,23 @@ pub fn title_of(content: &str) -> String {
         .or(first.map(str::to_string))
         .unwrap_or_default();
     title.chars().take(MAX_TITLE_CHARS).collect()
+}
+
+/// カテゴリの名前として正しいか (前後の空白を除いたもの. 空でなく, [`MAX_CATEGORY_CHARS`] 文字までで,
+/// 制御文字を含まない).
+///
+/// # Arguments
+///
+/// * `category` - カテゴリの名前.
+///
+/// # Returns
+///
+/// 正しければ `true`.
+pub fn is_valid_category(category: &str) -> bool {
+    !category.is_empty()
+        && category.trim() == category
+        && category.chars().count() <= MAX_CATEGORY_CHARS
+        && !category.chars().any(char::is_control)
 }
 
 /// ノートの ID として正しいか (UUID の形. ファイルの名前に使うので, ほかの文字を通さない).
@@ -139,7 +162,7 @@ fn write_atomic(path: &Path, bytes: &[u8]) -> io::Result<()> {
     fs::rename(&tmp, path)
 }
 
-/// ID が正しくなければ, エラーにする.
+/// ID が正しくなければエラーにする.
 ///
 /// # Arguments
 ///
@@ -277,7 +300,7 @@ impl Store {
     ///
     /// # Returns
     ///
-    /// 見つかれば, その項目.
+    /// 見つかればその項目.
     pub fn find_by_remote(&self, note_id: &str) -> io::Result<Option<NoteMeta>> {
         Ok(self.load_index()?.into_iter().find(|n| {
             n.hackmd
@@ -294,7 +317,7 @@ impl Store {
     ///
     /// # Returns
     ///
-    /// 見つかれば, その項目.
+    /// 見つかればその項目.
     pub fn find_by_file(&self, path: &str) -> io::Result<Option<NoteMeta>> {
         Ok(self
             .load_index()?
@@ -339,6 +362,7 @@ impl Store {
             updated_at: now,
             hackmd,
             file: None,
+            category: None,
         };
         write_atomic(&self.note_path(&meta.id), content.as_bytes())?;
         let mut notes = self.load_index()?;
@@ -394,6 +418,20 @@ impl Store {
     /// 変えたあとの項目. ノートがなければ [`Err`].
     pub fn set_file(&self, id: &str, file: Option<FileLink>) -> io::Result<NoteMeta> {
         self.update_meta(id, |meta| meta.file = file)
+    }
+
+    /// ノートのカテゴリを変える.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - ノートの ID.
+    /// * `category` - 新しいカテゴリ (`None` は, 分けない). 名前は確かめてから渡す ([`is_valid_category`]).
+    ///
+    /// # Returns
+    ///
+    /// 変えたあとの項目. ノートがなければ [`Err`].
+    pub fn set_category(&self, id: &str, category: Option<String>) -> io::Result<NoteMeta> {
+        self.update_meta(id, |meta| meta.category = category)
     }
 
     /// ノートを消す (ローカルだけ. HackMD のノートは消さない).

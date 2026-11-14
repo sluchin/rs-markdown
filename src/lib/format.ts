@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-/** 選んでいる範囲 (文字の位置. `from` と `to` が同じなら, カーソル). */
+/** 選んでいる範囲 (文字の位置. `from` と `to` が同じならカーソル). */
 export interface Selection {
   /** 始め. */
   from: number;
@@ -95,7 +95,7 @@ const LIST_MARK = /^(?:[-*+] (?:\[[ xX]\] )?|\d+\. )/;
 /** 表のひな形. */
 const TABLE = "| 列 1 | 列 2 |\n| ---- | ---- |\n| 文字 | 文字 |";
 
-/** 表のひな形で, 選んでおく文字. */
+/** 表のひな形で選んでおく文字. */
 const TABLE_FIRST = "列 1";
 
 /** リンクと画像の URL のひな形. */
@@ -204,7 +204,7 @@ export function cycleHeading(doc: string, sel: Selection): Edit {
 }
 
 /**
- * リンクか画像を入れる. 選んだ文字を, リンクの文字 (画像なら説明) にして, URL を選ぶ.
+ * リンクか画像を入れる. 選んだ文字を, リンクの文字 (画像なら説明) にして URL を選ぶ.
  *
  * @param sel 選んでいる範囲
  * @param text 選んでいる文字

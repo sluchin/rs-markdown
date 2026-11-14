@@ -6,7 +6,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import type { LogLevel } from "../lib/log";
-import type { NoteMeta, RemoteEntry, SyncState } from "../lib/notes";
+import type { CategoryPush, DirImport, NoteMeta, RemoteEntry, SyncState } from "../lib/notes";
 
 /** トークンの取り元 (Rust の `TokenSource`). */
 export type TokenSource = "none" | "saved" | "env";
@@ -187,7 +187,7 @@ export const importImage = (path: string) => invoke<string>("import_image", { pa
 export const imagesDir = () => invoke<string>("images_dir");
 
 /**
- * 外の Markdown のファイルを, ファイルとつないだノートとして取り込む (もう取り込んであれば, そのノート).
+ * 外の Markdown のファイルを, ファイルとつないだノートとして取り込む (もう取り込んであればそのノート).
  *
  * @param path ファイルのパス
  * @returns 取り込んだノート
@@ -223,7 +223,7 @@ export const pullFile = (id: string, force: boolean) =>
   invoke<NoteMeta>("pull_file", { id, force });
 
 /**
- * ファイルとの衝突で, 両方を残す.
+ * ファイルとの衝突で両方を残す.
  *
  * @param id ノートの ID
  * @returns ファイルの本文の, 新しいノート
@@ -237,3 +237,32 @@ export const keepBothFile = (id: string) => invoke<NoteMeta>("keep_both_file", {
  * @returns 変えたあとのノート
  */
 export const unlinkFile = (id: string) => invoke<NoteMeta>("unlink_file", { id });
+
+/**
+ * フォルダの中の Markdown のファイルを, 全て取り込んでカテゴリに入れる.
+ *
+ * @param path フォルダのパス
+ * @param category カテゴリ (空にできない)
+ * @returns 取り込んだ結果
+ */
+export const importDir = (path: string, category: string) =>
+  invoke<DirImport>("import_dir", { path, category });
+
+/**
+ * ノートのカテゴリを変える.
+ *
+ * @param id ノートの ID
+ * @param category カテゴリ (空なら分けない)
+ * @returns 変えたあとのノート
+ */
+export const setCategory = (id: string, category: string) =>
+  invoke<NoteMeta>("set_category", { id, category });
+
+/**
+ * カテゴリのノートを, まとめて HackMD に送る (HackMD の側が変わっていたノートは, 送らない).
+ *
+ * @param category カテゴリ
+ * @returns 送った結果
+ */
+export const pushCategory = (category: string) =>
+  invoke<CategoryPush>("push_category", { category });
