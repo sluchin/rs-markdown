@@ -8,6 +8,8 @@ import { describe, expect, it } from "vitest";
 import {
   categoriesOf,
   categoryPushMessage,
+  categoryDeleteWarnings,
+  deleteWarnings,
   type NoteMeta,
   displayTitle,
   fileName,
@@ -161,5 +163,82 @@ describe("categoryPushMessage", () => {
     expect(categoryPushMessage("空", { pushed: [], unchanged: 0, conflicts: [] })).toBe(
       "「空」にはノートがありません。",
     );
+  });
+});
+
+describe("deleteWarnings", () => {
+  const none = {
+    pending: false,
+    linkedHackmd: false,
+    linkedFile: false,
+    hackmd: false,
+    file: false,
+  };
+
+  it("つないでいないノートは、元に戻せないことを伝える", () => {
+    expect(deleteWarnings(none)).toEqual([
+      "HackMD にも、ファイルにも、つないでいないので、消すと元に戻せません。",
+    ]);
+  });
+
+  it("保存していない内容と、送っていない変更を、1 つずつ伝える", () => {
+    const lines = deleteWarnings({
+      pending: true,
+      linkedHackmd: true,
+      linkedFile: true,
+      hackmd: true,
+      file: true,
+    });
+    expect(lines).toEqual([
+      "書いたあと、まだ保存していない内容があります。消すと、その内容も失われます。",
+      "HackMD に送っていない変更があります。消すと、この変更は失われます。",
+      "元のファイルに保存していない変更があります。消すと、この変更は失われます。",
+      "HackMD のノートは消えません。",
+      "元のファイルは消えません。",
+    ]);
+  });
+
+  it("HackMD だけにつないで、変更がなければ、HackMD のノートが消えないことだけを伝える", () => {
+    expect(deleteWarnings({ ...none, linkedHackmd: true })).toEqual([
+      "HackMD のノートは消えません。",
+    ]);
+    expect(deleteWarnings({ ...none, linkedFile: true })).toEqual(["元のファイルは消えません。"]);
+  });
+});
+
+describe("categoryDeleteWarnings", () => {
+  const base = {
+    total: 3,
+    pending: false,
+    linkedHackmd: 0,
+    linkedFile: 0,
+    hackmd: 0,
+    file: 0,
+    unlinked: 0,
+  };
+
+  it("注意することがなければ、空になる", () => {
+    expect(categoryDeleteWarnings(base)).toEqual([]);
+  });
+
+  it("保存していない内容と、送っていない変更と、元に戻せないノートを、件数で伝える", () => {
+    expect(
+      categoryDeleteWarnings({
+        total: 5,
+        pending: true,
+        linkedHackmd: 2,
+        linkedFile: 1,
+        hackmd: 2,
+        file: 1,
+        unlinked: 2,
+      }),
+    ).toEqual([
+      "書いたあと、まだ保存していない内容があります。消すと、その内容も失われます。",
+      "HackMD に送っていない変更があるノートが、2 件あります。消すと、この変更は失われます。",
+      "元のファイルに保存していない変更があるノートが、1 件あります。消すと、この変更は失われます。",
+      "HackMD のノートは消えません。",
+      "元のファイルは消えません。",
+      "HackMD にも、ファイルにも、つないでいないノートが、2 件あります。消すと元に戻せません。",
+    ]);
   });
 });

@@ -56,6 +56,103 @@ export interface CategoryPush {
   conflicts: NoteMeta[];
 }
 
+/** ノートを消す前に確かめた, 保存の状態. */
+export interface DeleteCheck {
+  /** 書いたあと, まだ保存していない内容がある. */
+  pending: boolean;
+  /** HackMD のノートとつないでいる. */
+  linkedHackmd: boolean;
+  /** 取り込んだファイルとつないでいる. */
+  linkedFile: boolean;
+  /** HackMD に送っていない変更がある. */
+  hackmd: boolean;
+  /** ファイルに保存していない変更がある. */
+  file: boolean;
+}
+
+/**
+ * ノートを消す前の確認の画面に出す, 注意の文を作る.
+ * HackMD のノートと元のファイルは消えないので, そのことも添える.
+ *
+ * @param check 保存の状態
+ * @returns 注意の文 (注意することがなければ, 空)
+ */
+export function deleteWarnings(check: DeleteCheck): string[] {
+  const lines: string[] = [];
+  if (check.pending) {
+    lines.push("書いたあと、まだ保存していない内容があります。消すと、その内容も失われます。");
+  }
+  if (check.hackmd) {
+    lines.push("HackMD に送っていない変更があります。消すと、この変更は失われます。");
+  }
+  if (check.file) {
+    lines.push("元のファイルに保存していない変更があります。消すと、この変更は失われます。");
+  }
+  if (check.linkedHackmd) {
+    lines.push("HackMD のノートは消えません。");
+  }
+  if (check.linkedFile) {
+    lines.push("元のファイルは消えません。");
+  }
+  if (!check.linkedHackmd && !check.linkedFile) {
+    lines.push("HackMD にも、ファイルにも、つないでいないので、消すと元に戻せません。");
+  }
+  return lines;
+}
+
+/** カテゴリのノートを, まとめて消す前に確かめた, 保存の状態. */
+export interface CategoryDeleteCheck {
+  /** 消すノートの数. */
+  total: number;
+  /** 書いたあと, まだ保存していない内容がある (今開いているノートが, このカテゴリにある). */
+  pending: boolean;
+  /** HackMD のノートとつないでいるノートの数. */
+  linkedHackmd: number;
+  /** 取り込んだファイルとつないでいるノートの数. */
+  linkedFile: number;
+  /** HackMD に送っていない変更があるノートの数. */
+  hackmd: number;
+  /** ファイルに保存していない変更があるノートの数. */
+  file: number;
+  /** HackMD にも, ファイルにも, つないでいないノートの数. */
+  unlinked: number;
+}
+
+/**
+ * カテゴリのノートを, まとめて消す前の確認の画面に出す, 注意の文を作る.
+ *
+ * @param check 保存の状態
+ * @returns 注意の文
+ */
+export function categoryDeleteWarnings(check: CategoryDeleteCheck): string[] {
+  const lines: string[] = [];
+  if (check.pending) {
+    lines.push("書いたあと、まだ保存していない内容があります。消すと、その内容も失われます。");
+  }
+  if (check.hackmd > 0) {
+    lines.push(
+      `HackMD に送っていない変更があるノートが、${check.hackmd} 件あります。消すと、この変更は失われます。`,
+    );
+  }
+  if (check.file > 0) {
+    lines.push(
+      `元のファイルに保存していない変更があるノートが、${check.file} 件あります。消すと、この変更は失われます。`,
+    );
+  }
+  if (check.linkedHackmd > 0) {
+    lines.push("HackMD のノートは消えません。");
+  }
+  if (check.linkedFile > 0) {
+    lines.push("元のファイルは消えません。");
+  }
+  if (check.unlinked > 0) {
+    lines.push(
+      `HackMD にも、ファイルにも、つないでいないノートが、${check.unlinked} 件あります。消すと元に戻せません。`,
+    );
+  }
+  return lines;
+}
+
 /** カテゴリの名前の最大の文字数 (Rust の `store::MAX_CATEGORY_CHARS` と同じ). */
 export const MAX_CATEGORY_CHARS = 40;
 

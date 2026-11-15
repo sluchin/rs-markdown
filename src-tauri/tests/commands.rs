@@ -71,6 +71,50 @@ async fn test_notes_create_read_save_list_delete() {
 }
 
 #[tokio::test]
+async fn test_unsynced_note_compares_with_the_last_synced_hash() {
+    use rs_markdown_lib::store::{FileLink, HackmdLink, content_hash};
+    let (_dir, state) = state("http://127.0.0.1:1", None);
+    let meta = commands::create_note(&state, "# a").await.unwrap();
+    // つながりがなければ, 送るものはない
+    let none = commands::unsynced_note(&state, &meta.id).await.unwrap();
+    assert!(!none.hackmd && !none.file);
+
+    {
+        let store = state.store.lock().await;
+        store
+            .set_link(
+                &meta.id,
+                Some(HackmdLink {
+                    note_id: "r".to_string(),
+                    synced_hash: content_hash("# a"),
+                    publish_link: None,
+                }),
+            )
+            .unwrap();
+        store
+            .set_file(
+                &meta.id,
+                Some(FileLink {
+                    path: "/x/a.md".to_string(),
+                    synced_hash: content_hash("# old"),
+                }),
+            )
+            .unwrap();
+    }
+    let status = commands::unsynced_note(&state, &meta.id).await.unwrap();
+    // HackMD とは同じ内容, ファイルとは違う内容
+    assert!(!status.hackmd);
+    assert!(status.file);
+
+    commands::save_note(&state, &meta.id, "# b").await.unwrap();
+    let changed = commands::unsynced_note(&state, &meta.id).await.unwrap();
+    assert!(changed.hackmd && changed.file);
+
+    let missing = commands::unsynced_note(&state, "../x").await.unwrap_err();
+    assert_eq!(missing.kind, ErrorKind::NotFound);
+}
+
+#[tokio::test]
 async fn test_notes_report_the_errors() {
     let (dir, state) = state("http://127.0.0.1:1", None);
     let id = commands::create_note(&state, "x").await.unwrap().id;

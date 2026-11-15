@@ -51,7 +51,16 @@ export const saveNote = (id: string, content: string) =>
   invoke<NoteMeta>("save_note", { id, content });
 
 /**
- * ノートを消す (ローカルだけ).
+ * ノートに, HackMD やファイルに送っていない変更があるかを調べる (ローカルだけで調べる).
+ *
+ * @param id ノートの ID
+ * @returns 送っていない変更の有無
+ */
+export const unsyncedNote = (id: string) =>
+  invoke<{ hackmd: boolean; file: boolean }>("unsynced_note", { id });
+
+/**
+ * ノートを消す (ローカルだけ. HackMD のノートとファイルは消えない).
  *
  * @param id ノートの ID
  * @returns 終わったら, 解決する

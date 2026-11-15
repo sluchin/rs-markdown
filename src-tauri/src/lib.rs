@@ -71,6 +71,16 @@ async fn delete_note(state: State<'_, AppState>, id: String) -> Result<(), Comma
     commands::delete_note(&state, &id).await
 }
 
+/// ノートに, HackMD やファイルに送っていない変更があるか (ローカルだけで調べる).
+#[cfg(not(tarpaulin_include))]
+#[tauri::command]
+async fn unsynced_note(
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<commands::Unsynced, CommandError> {
+    commands::unsynced_note(&state, &id).await
+}
+
 /// ノートと HackMD のノートのつながりを外す.
 #[cfg(not(tarpaulin_include))]
 #[tauri::command]
@@ -310,6 +320,7 @@ pub fn run() {
             create_note,
             save_note,
             delete_note,
+            unsynced_note,
             unlink_note,
             note_status,
             push_note,

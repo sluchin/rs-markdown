@@ -18,6 +18,8 @@ import { log } from "../lib/log";
 import {
   categoriesOf,
   categoryPushMessage,
+  categoryDeleteWarnings,
+  deleteWarnings,
   displayTitle,
   fileName,
   fileSyncLabel,
@@ -35,6 +37,7 @@ import { type Anchor, lineForTop, normalizeAnchors, topForLine } from "../lib/sc
 import { applyChange, toggleTask } from "../lib/tasks";
 import * as api from "./api";
 import { CategoryDialog } from "./CategoryDialog";
+import { DeleteDialog } from "./DeleteDialog";
 import { ConflictDialog, type ConflictTarget, type Resolution } from "./ConflictDialog";
 import { Editor, type EditorHandle } from "./Editor";
 import { LogDialog } from "./LogDialog";
@@ -197,7 +200,21 @@ export default function App() {
   const [syncState, setSyncState] = useState<SyncState>();
   const [fileState, setFileState] = useState<SyncState>();
   const [conflictTarget, setConflictTarget] = useState<ConflictTarget>("hackmd");
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  // 一覧で右クリックしたノート (メニューを出す位置)
+  // (ノートか, カテゴリか. カテゴリは名前を, ノートは ID を持つ)
+  const [menu, setMenu] = useState<{
+    kind: "note" | "category";
+    key: string;
+    x: number;
+    y: number;
+  }>();
+  // 消す確認を出しているノート (カテゴリなら, そのカテゴリのノート全部) と, 画面の文
+  const [deleting, setDeleting] = useState<{
+    ids: string[];
+    title: string;
+    label: string;
+    warnings: string[];
+  }>();
   // 一覧の日時の「今日」を決める (開いたときの日時)
   const [now] = useState(() => Date.now());
   const [imagesDir, setImagesDir] = useState<string>();
@@ -239,6 +256,20 @@ export default function App() {
     };
   }, []);
 
+  // メニューは, Esc でも閉じる
+  useEffect(() => {
+    if (!menu) {
+      return;
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setMenu(undefined);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [menu]);
+
   // Android の戻るボタンで, ノートから一覧に戻る
   useEffect(() => {
     const onPop = () => setShowList(true);
@@ -262,7 +293,6 @@ export default function App() {
   };
 
   const open = async (id: string) => {
-    setConfirmDelete(false);
     setSyncState(undefined);
     setFileState(undefined);
     setMessage(undefined);
@@ -456,21 +486,105 @@ export default function App() {
     }
   };
 
-  const remove = async () => {
-    if (!current) {
+  /**
+   * ノートを消す前の確認を出す. 保存していない変更 (書いたあとの保存待ちと, HackMD やファイルに送っていない変更) を調べて, 注意に添える.
+   *
+   * @param id ノートの ID
+   */
+  const askDelete = async (id: string) => {
+    setMenu(undefined);
+    const note = notes.find((item) => item.id === id);
+    if (!note) {
       return;
     }
-    setConfirmDelete(false);
-    saver.current?.cancel();
-    saver.current = undefined;
     try {
-      await api.deleteNote(current.id);
-      setNotes((list) => list.filter((note) => note.id !== current.id));
-      setCurrent(undefined);
-      setContent("");
-      back();
+      const isCurrent = id === current?.id;
+      const pending = isCurrent && saver.current?.pending() === true;
+      if (isCurrent) {
+        // 送っていない変更を, 今の内容で調べるため, 待っている内容を先に保存する
+        await saver.current?.flush();
+      }
+      const unsynced = await api.unsyncedNote(id);
+      setDeleting({
+        ids: [id],
+        title: "ノートを削除しますか",
+        label: noteLabel(note, listLabel),
+        warnings: deleteWarnings({
+          pending,
+          linkedHackmd: note.hackmd != null,
+          linkedFile: note.file != null,
+          ...unsynced,
+        }),
+      });
     } catch (e) {
       fail(e);
+    }
+  };
+
+  /**
+   * カテゴリのノートを全て消す前の確認を出す. ノートごとに, 保存していない変更を調べて, 件数にまとめる.
+   *
+   * @param category カテゴリの名前
+   */
+  const askDeleteCategory = async (category: string) => {
+    setMenu(undefined);
+    // 探している間の絞り込みに関わらず, そのカテゴリのノート全部
+    const targets = notes.filter((note) => note.category === category);
+    if (targets.length === 0) {
+      return;
+    }
+    try {
+      const hasCurrent = targets.some((note) => note.id === current?.id);
+      const pending = hasCurrent && saver.current?.pending() === true;
+      if (hasCurrent) {
+        await saver.current?.flush();
+      }
+      const states = await Promise.all(targets.map((note) => api.unsyncedNote(note.id)));
+      setDeleting({
+        ids: targets.map((note) => note.id),
+        title: "カテゴリを削除しますか",
+        label: `「${category}」と、中のノート ${targets.length} 件を、全て削除します`,
+        warnings: categoryDeleteWarnings({
+          total: targets.length,
+          pending,
+          linkedHackmd: targets.filter((note) => note.hackmd != null).length,
+          linkedFile: targets.filter((note) => note.file != null).length,
+          hackmd: states.filter((state) => state.hackmd).length,
+          file: states.filter((state) => state.file).length,
+          unlinked: targets.filter((note) => note.hackmd == null && note.file == null).length,
+        }),
+      });
+    } catch (e) {
+      fail(e);
+    }
+  };
+
+  /**
+   * 確認のあとで, ノートを消す (ローカルだけ. HackMD のノートとファイルは消えない). 途中で失敗したら, そこで止める.
+   *
+   * @param ids 消すノートの ID
+   */
+  const remove = async (ids: readonly string[]) => {
+    setDeleting(undefined);
+    const removed = new Set<string>();
+    try {
+      for (const id of ids) {
+        if (id === current?.id) {
+          saver.current?.cancel();
+          saver.current = undefined;
+        }
+        await api.deleteNote(id);
+        removed.add(id);
+      }
+    } catch (e) {
+      fail(e);
+    } finally {
+      setNotes((list) => list.filter((note) => !removed.has(note.id)));
+      if (current && removed.has(current.id)) {
+        setCurrent(undefined);
+        setContent("");
+        back();
+      }
     }
   };
 
@@ -756,6 +870,10 @@ export default function App() {
           <button
             className={note.id === current?.id ? "selected" : undefined}
             onClick={() => void open(note.id)}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              setMenu({ kind: "note", key: note.id, x: e.clientX, y: e.clientY });
+            }}
             title={note.file ? note.file.path : undefined}
           >
             <span className="title">{noteLabel(note, listLabel)}</span>
@@ -841,7 +959,16 @@ export default function App() {
               const expanded = searching || !collapsed.has(key);
               return (
                 <section key={key} className="note-group">
-                  <div className="category-row">
+                  <div
+                    className="category-row"
+                    onContextMenu={(e) => {
+                      // 「未分類」は, カテゴリではないので, 消せない
+                      if (category !== null) {
+                        e.preventDefault();
+                        setMenu({ kind: "category", key: category, x: e.clientX, y: e.clientY });
+                      }
+                    }}
+                  >
                     <button
                       className="category"
                       aria-expanded={expanded}
@@ -946,16 +1073,7 @@ export default function App() {
               <button onClick={() => setDialog("category")} title="このノートのカテゴリを変える">
                 分類{meta.category ? `: ${meta.category}` : ""}
               </button>
-              {confirmDelete ? (
-                <>
-                  <button className="danger" onClick={() => void remove()}>
-                    本当に消す
-                  </button>
-                  <button onClick={() => setConfirmDelete(false)}>やめる</button>
-                </>
-              ) : (
-                <button onClick={() => setConfirmDelete(true)}>消す</button>
-              )}
+              <button onClick={() => void askDelete(current.id)}>削除</button>
             </div>
             {file && (
               <div className="toolbar sync">
@@ -1043,6 +1161,38 @@ export default function App() {
         )}
       </main>
 
+      {menu && (
+        <div
+          className="menu-backdrop"
+          onClick={() => setMenu(undefined)}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            setMenu(undefined);
+          }}
+        >
+          <ul className="context-menu" role="menu" style={{ left: menu.x, top: menu.y }}>
+            <li role="none">
+              <button
+                role="menuitem"
+                onClick={() =>
+                  void (menu.kind === "note" ? askDelete(menu.key) : askDeleteCategory(menu.key))
+                }
+              >
+                {menu.kind === "note" ? "削除" : "カテゴリを削除"}
+              </button>
+            </li>
+          </ul>
+        </div>
+      )}
+      {deleting && (
+        <DeleteDialog
+          title={deleting.title}
+          label={deleting.label}
+          warnings={deleting.warnings}
+          onConfirm={() => void remove(deleting.ids)}
+          onClose={() => setDeleting(undefined)}
+        />
+      )}
       {dialog === "settings" && (
         <SettingsDialog onOpenLog={() => setDialog("log")} onClose={() => setDialog(undefined)} />
       )}

@@ -148,6 +148,38 @@ pub async fn delete_note(state: &AppState, id: &str) -> Result<(), CommandError>
     Ok(())
 }
 
+/// ノートの, 最後に同期してから変えたところの有無. 消す前の確認に使う (ローカルの本文だけで調べるので,
+/// HackMD には問い合わせない).
+#[derive(Serialize, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct Unsynced {
+    /// HackMD のノートとつないでいて, 最後に同期した本文と違う (HackMD に送っていない変更がある).
+    pub hackmd: bool,
+    /// 取り込んだファイルとつないでいて, 最後に合わせた本文と違う (ファイルに保存していない変更がある).
+    pub file: bool,
+}
+
+/// ノートに, HackMD やファイルに送っていない変更があるかを返す. 本文と, 最後に同期したときのハッシュを比べるだけで,
+/// HackMD にもファイルにも問い合わせない.
+///
+/// # Arguments
+///
+/// * `state` - アプリの状態.
+/// * `id` - ノートの ID.
+///
+/// # Returns
+///
+/// 送っていない変更の有無.
+pub async fn unsynced_note(state: &AppState, id: &str) -> Result<Unsynced, CommandError> {
+    let store = state.store.lock().await;
+    let meta = store.meta(id).map_err(|e| report("unsynced_note", e))?;
+    let hash = notes::content_hash(&store.read(id).map_err(|e| report("unsynced_note", e))?);
+    Ok(Unsynced {
+        hackmd: meta.hackmd.is_some_and(|l| l.synced_hash != hash),
+        file: meta.file.is_some_and(|l| l.synced_hash != hash),
+    })
+}
+
 /// ノートと HackMD のノートのつながりを外す.
 ///
 /// # Arguments
