@@ -208,6 +208,8 @@ export default function App() {
     x: number;
     y: number;
   }>();
+  // カテゴリを変える画面を出しているノートの ID
+  const [categoryFor, setCategoryFor] = useState<string>();
   // 消す確認を出しているノート (カテゴリなら, そのカテゴリのノート全部) と, 画面の文
   const [deleting, setDeleting] = useState<{
     ids: string[];
@@ -412,11 +414,11 @@ export default function App() {
    */
   const changeCategory = async (category: string) => {
     setDialog(undefined);
-    if (!current) {
+    if (!categoryFor) {
       return;
     }
     try {
-      updateMeta(await api.setCategory(current.id, category));
+      updateMeta(await api.setCategory(categoryFor, category));
     } catch (e) {
       fail(e);
     }
@@ -887,6 +889,7 @@ export default function App() {
       ))}
     </ul>
   );
+  const categoryNote = notes.find((note) => note.id === categoryFor);
   const link = meta?.hackmd;
   const file = meta?.file;
 
@@ -1070,7 +1073,13 @@ export default function App() {
                   </button>
                 </>
               )}
-              <button onClick={() => setDialog("category")} title="このノートのカテゴリを変える">
+              <button
+                onClick={() => {
+                  setCategoryFor(current.id);
+                  setDialog("category");
+                }}
+                title="このノートのカテゴリを変える"
+              >
                 分類{meta.category ? `: ${meta.category}` : ""}
               </button>
               <button onClick={() => void askDelete(current.id)}>削除</button>
@@ -1171,6 +1180,20 @@ export default function App() {
           }}
         >
           <ul className="context-menu" role="menu" style={{ left: menu.x, top: menu.y }}>
+            {menu.kind === "note" && (
+              <li role="none">
+                <button
+                  role="menuitem"
+                  onClick={() => {
+                    setCategoryFor(menu.key);
+                    setMenu(undefined);
+                    setDialog("category");
+                  }}
+                >
+                  分類を変更
+                </button>
+              </li>
+            )}
             <li role="none">
               <button
                 role="menuitem"
@@ -1215,10 +1238,11 @@ export default function App() {
           }}
         />
       )}
-      {dialog === "category" && meta && (
+      {dialog === "category" && categoryNote && (
         <CategoryDialog
           title="カテゴリを変える"
-          initial={meta.category ?? ""}
+          description={noteLabel(categoryNote, listLabel)}
+          initial={categoryNote.category ?? ""}
           required={false}
           submitLabel="変える"
           categories={categoriesOf(notes)}
